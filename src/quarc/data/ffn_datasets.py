@@ -13,7 +13,6 @@ from torch.utils.data import Dataset, IterableDataset
 from quarc.data.datapoints import AgentRecord, ReactionDatum
 from quarc.models.modules.agent_encoder import AgentEncoder
 from quarc.models.modules.agent_standardizer import AgentStandardizer
-from quarc.models.modules.rxn_encoder import ReactionClassEncoder
 from quarc.settings import load as load_settings
 
 cfg = load_settings()
@@ -94,7 +93,6 @@ class AugmentedAgentsDataset(Dataset):
         original_data: list[ReactionDatum],
         agent_standardizer: AgentStandardizer,
         agent_encoder: AgentEncoder,
-        rxn_encoder: ReactionClassEncoder,
         fp_radius: int = 3,
         fp_length: int = 2048,
         sample_weighting: Literal["pascal", "uniform", "none"] = "pascal",
@@ -103,7 +101,6 @@ class AugmentedAgentsDataset(Dataset):
         self.original_data = original_data
         self.agent_standardizer = agent_standardizer
         self.agent_encoder = agent_encoder
-        self.rxn_encoder = rxn_encoder
         self.fp_radius = fp_radius
         self.fp_length = fp_length
         self.sample_weighting = sample_weighting
@@ -152,7 +149,6 @@ class AugmentedAgentsDataset(Dataset):
 
         # Generate reaction fingerprint
         FP_input = self.generate_reaction_fingerprint(original_datum)
-        rxn_class = torch.tensor(self.rxn_encoder.to_onehot(original_datum.rxn_class))
 
         # Get agent indices
         agent_smiles = [agent.smiles for agent in original_datum.agents]
@@ -185,7 +181,7 @@ class AugmentedAgentsDataset(Dataset):
             a_target = a_orig - a_input
             weight = all_sample_weights[r]
 
-        return FP_input, a_input, a_target, weight, rxn_class
+        return FP_input, a_input, a_target, weight
 
     def pascal_triangle_weights(self, n_agents: int) -> torch.Tensor:
         """Generates weights based on Pascal's Triangle for a given number of agents."""
@@ -211,7 +207,7 @@ class AugmentedAgentsDataset(Dataset):
         return torch.cat((FP_r, FP_p))
 
 
-class AgentsDatasetWithReactionClass(ReactionDatasetBase):
+class AgentsDataset(ReactionDatasetBase):
     """Regular Agent Dataset for validation and testing with reaction class.
 
     For each reaction, the input is the FP and no agent, and the target is all agents.
@@ -222,7 +218,6 @@ class AgentsDatasetWithReactionClass(ReactionDatasetBase):
         data: list[ReactionDatum],
         agent_standardizer: AgentStandardizer,
         agent_encoder: AgentEncoder,
-        rxn_encoder: ReactionClassEncoder,
         fp_radius: int = 3,
         fp_length: int = 2048,
     ):
@@ -237,7 +232,6 @@ class AgentsDatasetWithReactionClass(ReactionDatasetBase):
         """
 
         super().__init__(data, agent_standardizer, agent_encoder, fp_radius, fp_length)
-        self.rxn_encoder = rxn_encoder
 
     def __getitem__(self, idx):
         """Get item from index mapping.
