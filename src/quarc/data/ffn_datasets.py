@@ -83,8 +83,7 @@ class ReactionDatasetBase(Dataset):
 
 class AugmentedAgentsDataset(Dataset):
     """
-    Dataset for generating all possible combinations of splitting to input and target agents.
-
+    Agents dataset with augmentation and without reaction class.
     Uses precomputed index mapping for efficient access while maintaining lazy computation of features.
     """
 
@@ -130,7 +129,7 @@ class AugmentedAgentsDataset(Dataset):
     def __len__(self):
         return len(self.index_mapping)
 
-    def __getitem__(self, idx: int) -> tuple[Tensor, Tensor, Tensor, float, Tensor]:
+    def __getitem__(self, idx: int) -> tuple[Tensor, Tensor, Tensor, float]:
         """Get item from index mapping.
 
         Args:
@@ -141,7 +140,6 @@ class AugmentedAgentsDataset(Dataset):
             a_input: input agents as multi-hot tensor
             a_target: target agents as multi-hot tensor
             weight: weight of the training sample
-            rxn_class: reaction class as one-hot tensor
         """
 
         orig_idx, aug_spec = self.index_mapping[idx]
@@ -208,7 +206,7 @@ class AugmentedAgentsDataset(Dataset):
 
 
 class AgentsDataset(ReactionDatasetBase):
-    """Regular Agent Dataset for validation and testing with reaction class.
+    """Regular Agent Dataset for validation and testing without reaction class.
 
     For each reaction, the input is the FP and no agent, and the target is all agents.
     """
@@ -221,15 +219,6 @@ class AgentsDataset(ReactionDatasetBase):
         fp_radius: int = 3,
         fp_length: int = 2048,
     ):
-        """Initialize the AgentsDatasetWithReactionClass.
-
-        Args:
-            data: list of ReactionDatum
-            agent_standardizer: AgentStandardizer
-            agent_encoder: AgentEncoder
-            fp_radius: default 3
-            fp_length: default 2048
-        """
 
         super().__init__(data, agent_standardizer, agent_encoder, fp_radius, fp_length)
 
@@ -243,21 +232,16 @@ class AgentsDataset(ReactionDatasetBase):
             FP_input: reaction fingerprint
             a_input: empty multi-hot tensor
             a_target: multi-hot tensor of all agents
-            rxn_class: reaction class as one-hot tensor
         """
 
         datum = self.data[idx]
 
         FP_input = self.generate_reaction_fingerprint(datum)
-        rxn_class = torch.tensor(self.rxn_encoder.to_onehot(datum.rxn_class))
-
         a_target = self.standardize_and_encode_agents(datum.agents)
         a_input = torch.zeros_like(a_target)
 
-        return FP_input, a_input, a_target, rxn_class
+        return FP_input, a_input, a_target
 
-    def _getname(self):
-        return "AgentsDataset"
 
 
 class BinnedTemperatureDataset(ReactionDatasetBase):
