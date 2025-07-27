@@ -17,7 +17,6 @@ from quarc.data.gnn_datasets import (
 )
 from quarc.models.modules.agent_encoder import AgentEncoder
 from quarc.models.modules.agent_standardizer import AgentStandardizer
-from quarc.models.modules.rxn_encoder import ReactionClassEncoder
 from quarc.utils.smiles_utils import prep_rxn_smi_input
 
 
@@ -55,7 +54,7 @@ class UnifiedEvaluationDataset:
         mg: The molecular graph representation.
         FP_inputs: Fingerprints for feedforward neural network models.
         FP_reactants: Fingerprints of reactants, padded for reactant amount prediction.
-        rxn_class: One-hot encoded reaction class.
+
 
     Targets:
         target_agents: List of target agents.
@@ -70,7 +69,6 @@ class UnifiedEvaluationDataset:
         data: list[ReactionDatum],
         agent_standardizer: AgentStandardizer,
         agent_encoder: AgentEncoder,
-        rxn_encoder: ReactionClassEncoder,
         featurizer: CondensedGraphOfReactionFeaturizer,
         binning_config: BinningConfig = None,
         include_raw_data: bool = False,
@@ -87,12 +85,13 @@ class UnifiedEvaluationDataset:
         self.agent_standardizer = agent_standardizer
         self.agent_encoder = agent_encoder
         self.featurizer = featurizer
-        self.rxn_class_encoder = rxn_encoder
+        # self.rxn_class_encoder = rxn_encoder
 
         self.binning_config = binning_config or BinningConfig.default()
 
         self.fp_radius = fp_radius
         self.fp_length = fp_length
+        print("removing rxn_class encoder")
 
     def __len__(self):
         return len(self.data)
@@ -265,7 +264,6 @@ class EvaluationDatasetFactory:
         agent_standardizer: AgentStandardizer,
         agent_encoder: AgentEncoder,
         featurizer: CondensedGraphOfReactionFeaturizer,
-        rxn_encoder: ReactionClassEncoder,
         **kwargs,
     ) -> UnifiedEvaluationDataset:
         """Create dataset for model (with model inputs)."""
@@ -274,7 +272,6 @@ class EvaluationDatasetFactory:
             agent_standardizer=agent_standardizer,
             agent_encoder=agent_encoder,
             featurizer=featurizer,
-            rxn_encoder=rxn_encoder,
             include_raw_data=False,
             include_model_inputs=True,
             **kwargs,
@@ -286,7 +283,6 @@ class EvaluationDatasetFactory:
         agent_standardizer: AgentStandardizer,
         agent_encoder: AgentEncoder,
         featurizer: CondensedGraphOfReactionFeaturizer,
-        rxn_encoder: ReactionClassEncoder,
         **kwargs,
     ) -> UnifiedEvaluationDataset:
         """Create dataset without model inputs but has targets."""
@@ -295,7 +291,6 @@ class EvaluationDatasetFactory:
             agent_standardizer=agent_standardizer,
             agent_encoder=agent_encoder,
             featurizer=featurizer,
-            rxn_encoder=rxn_encoder,
             include_raw_data=False,
             include_model_inputs=False,
             **kwargs,
@@ -324,7 +319,6 @@ class EvaluationDatasetFactory:
         agent_standardizer: AgentStandardizer,
         agent_encoder: AgentEncoder,
         featurizer: CondensedGraphOfReactionFeaturizer,
-        rxn_encoder: ReactionClassEncoder,
         **kwargs,
     ) -> UnifiedEvaluationDataset:
         """Create dataset for model (with model inputs)."""
@@ -333,7 +327,6 @@ class EvaluationDatasetFactory:
             agent_standardizer=agent_standardizer,
             agent_encoder=agent_encoder,
             featurizer=featurizer,
-            rxn_encoder=rxn_encoder,
             include_raw_data=True,
             include_model_inputs=True,
             include_targets=False,
