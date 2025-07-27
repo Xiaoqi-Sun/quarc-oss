@@ -1,0 +1,33 @@
+FROM mambaorg/micromamba:1.4.7-bionic-cuda-11.8
+
+USER root
+# Keep the base environment activated
+ARG MAMBA_DOCKERFILE_ACTIVATE=1
+RUN apt update && apt -y install git gcc g++ make
+
+# Copy environment file first for better caching
+COPY environment.yml /tmp/environment.yml
+
+# Create conda environment from environment.yml
+RUN micromamba env create -f /tmp/environment.yml && \
+    micromamba clean --all --yes
+
+# Activate the environment
+ENV PATH /opt/conda/envs/quarc/bin:$PATH
+SHELL ["/bin/bash", "-c"]
+
+# Copy application code
+COPY . /app/quarc
+WORKDIR /app/quarc
+
+# Download trained models
+RUN bash scripts/download_trained_models.sh
+
+# Create necessary directories
+RUN mkdir -p data/processed logs
+
+# Expose port for QUARC service
+EXPOSE 9610
+
+# Start the server automatically
+CMD ["python", "quarc_server_refactored.py"]

@@ -1,0 +1,31 @@
+FROM mambaorg/micromamba:1.4.7
+
+USER root
+# Keep the base environment activated
+ARG MAMBA_DOCKERFILE_ACTIVATE=1
+RUN apt update && apt -y install git gcc g++ make
+
+# Use micromamba to resolve conda-forge, much faster than conda
+RUN micromamba install -y python=3.11.2 pip=25.1.1 rdkit=2023.09.5 pandas=2.3.1 -c conda-forge
+RUN micromamba install -y torch==2.1.0 pytorch-lightning==2.5.0 -c pytorch -c conda-forge
+RUN pip install \
+    fastapi==0.88.0 \
+    uvicorn==0.35.0 \
+    pydantic==1.10.22 \
+    requests==2.32.4 \
+    torcheval==0.0.7 \
+    torchmetrics==1.7.4 \
+    loguru==0.7.3 \
+    tqdm==4.67.1 \
+    numpy==1.26.4 \
+    scipy==1.16.0 \
+    seaborn==0.13.2 \
+    matplotlib==3.10.3 \
+
+COPY . /app/quarc
+WORKDIR /app/quarc
+
+ENV CUDA_VISIBLE_DEVICES 10
+
+EXPOSE 9910 9911 9912
+

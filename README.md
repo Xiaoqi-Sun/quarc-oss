@@ -4,6 +4,11 @@ Training, benchmarking and serving modules for reaction condition recommendation
 
 Unless otherwise specified, models are released under the same license as the source code (MIT license).
 
+## TODO (Temporary)
+
+- [ ] Add explnation for file path configuration using environment variables (don't need to delete but can perhaps priorite the environment varaible overwriting)
+- [ ]
+
 ## Serving
 
 ### Step 1/4: Environment Setup
@@ -23,8 +28,8 @@ Then follow the instructions below to use either Docker, or Singularity (if Dock
 - Only option: build from local
 
 ```
-(CPU) docker build -f Dockerfile -t ${ASKCOS_REGISTRY}/context_recommender:1.0-cpu .
-(GPU) docker build -f Dockerfile -t ${ASKCOS_REGISTRY}/context_recommender:1.0-gpu .
+(CPU) docker build -f Dockerfile_cpu -t ${ASKCOS_REGISTRY}/quarc:1.0-cpu .
+(GPU) docker build -f Dockerfile_gpu -t ${ASKCOS_REGISTRY}/quarc:1.0-gpu .
 ```
 
 #### Using Singularity
@@ -32,8 +37,8 @@ Then follow the instructions below to use either Docker, or Singularity (if Dock
 - Only option: build from local
 
 ```
-(CPU) singularity build -f context_recommender_cpu.sif singularity_cpu.def
-(GPU) singularity build -f context_recommender_gpu.sif singularity_gpu.def
+(CPU) singularity build -f quarc_cpu.sif singularity_cpu.def
+(GPU) singularity build -f quarc_gpu.sif singularity_gpu.def
 ```
 
 ### Step 2/4: Download Trained Models
