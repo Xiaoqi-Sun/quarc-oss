@@ -431,6 +431,8 @@ class ModelFactory:
             batch_norm=True,
             metrics=metrics,
             init_lr=self.args.init_lr,
+            max_lr=self.args.max_lr,
+            final_lr=self.args.final_lr,
         )
 
         # Special callback for stage 1

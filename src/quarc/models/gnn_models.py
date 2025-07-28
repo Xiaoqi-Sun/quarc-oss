@@ -169,7 +169,7 @@ class BaseGNN(pl.LightningModule):
             opt,
             max_lr=self.max_lr,
             total_steps=self.trainer.estimated_stepping_batches,
-            div_factor=10,  # FIXME:change back to 25?
+            div_factor=25,  # FIXME:change back to 25?
         )
 
         return {
@@ -180,9 +180,15 @@ class BaseGNN(pl.LightningModule):
             },
         }
 
-    def on_train_epoch_start(self) -> None:
+    # def on_train_epoch_start(self) -> None:
+    #     lr = self.trainer.optimizers[0].param_groups[0]["lr"]
+    #     self.log("learning_rate", lr, on_epoch=True, on_step=False, sync_dist=True)
+
+    def on_train_batch_end(self, outputs, batch, batch_idx) -> None:
         lr = self.trainer.optimizers[0].param_groups[0]["lr"]
-        self.log("learning_rate", lr, on_epoch=True, on_step=False, sync_dist=True)
+        self.log("learning_rate", lr, on_epoch=False, on_step=True, sync_dist=True)
+        self.log("epoch", self.current_epoch, on_epoch=True, on_step=False, sync_dist=True)
+
 
 
 class AgentGNN(BaseGNN):
@@ -232,10 +238,10 @@ class AgentGNN(BaseGNN):
             self.log(metric_name, metric, batch_size=len(batch[0]), on_epoch=True, sync_dist=True)
         return val_loss
 
-    def configure_optimizers(self):
-        opt = Adam(self.parameters(), lr=self.init_lr)
-        lr_sched = ExponentialLR(optimizer=opt, gamma=self.gamma)
-        return {"optimizer": opt, "lr_scheduler": lr_sched}
+    # def configure_optimizers(self):
+    #     opt = Adam(self.parameters(), lr=self.init_lr)
+    #     lr_sched = ExponentialLR(optimizer=opt, gamma=self.gamma)
+    #     return {"optimizer": opt, "lr_scheduler": lr_sched}
 
 
 class AgentGNNWithRxnClass(BaseGNN):

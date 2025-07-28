@@ -164,10 +164,7 @@ def beam_search(
             with torch.no_grad():
                 current_agents = current_agents.to(device)
                 # mask already selected agents with very negative logits
-                logits = model(
-                    rxn_input, current_agents, torch.zeros(1, 2272).to(device)
-                )  # FIXME: delete placeholder
-                print(f"FIXME:delete zeros placeholder for rxn_class")
+                logits = model(rxn_input, current_agents)
                 masked_logits = torch.where(current_agents == 1, -1e6, logits)
                 probabilities = torch.softmax(masked_logits, dim=-1)
 
@@ -278,8 +275,7 @@ def beam_search_gnn(
             with torch.no_grad():
                 current_agents = current_agents.to(device)
                 # mask already selected agents with very negative logits
-                logits = model(current_agents, bmg, V_d, torch.zeros(1, 2272).to(device))  #FIXME:
-                print("FIXME: delete place xd placeholder")
+                logits = model(current_agents, bmg, V_d, x_d)
                 masked_logits = torch.where(current_agents == 1, -1e6, logits)
                 probabilities = torch.softmax(masked_logits, dim=-1)
 

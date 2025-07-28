@@ -5,11 +5,8 @@ if [ -z "${ASKCOS_REGISTRY}" ]; then
 fi
 
   # cleanup if container died;
-if [ "$(docker ps -aq -f status=exited -f name=^quarc_ffn_service$)" ]; then
-  docker rm quarc_ffn_service
-fi
-if [ "$(docker ps -aq -f status=exited -f name=^quarc_gnn_service$)" ]; then
-  docker rm quarc_gnn_service
+if [ "$(docker ps -aq -f status=exited -f name=^quarc_service$)" ]; then
+  docker rm quarc_service
 fi
 
 # docker run -d --gpus '"device=0"' \
@@ -24,7 +21,7 @@ fi
 #   --processed-data-dir /app/quarc/data/processed
 
 docker run -d --gpus '"device=0"' \
-  --name quarc_ffn_service \
+  --name quarc_service \
   -p 9911:9911 \
   -v "$PWD/configs:/app/quarc/configs" \
   -v "$PWD/checkpoints:/app/quarc/checkpoints" \

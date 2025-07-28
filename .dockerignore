@@ -1,18 +1,37 @@
-checkpoints/*
-# data/*
-logs/*
-results/*
-temp/*
-*.sif
-mars/*
-mars_partial/*
-condrec/*
-retrained_models/*
+# Git files
+.git/
+.gitattributes
+.gitignore
 
+# Documentation
+README.md
+CLAUDE.md
+LICENSE
+
+# Docker files
+Dockerfile*
+.dockerignore
+
+# Development tools
 .vscode/
 .cursor/
-.gitignore
+
+
+# Model directories (keep some but exclude large ones)
+checkpoints/
+retrained_models/
+mars/
+mars_partial/
+logs/
+temp/
+
+# Data directories
+# data/
+condrec/
+
+# Python cache and artifacts
 __pycache__/
+*.pytest_cache/
 *.pyc
 *.pyo
 *.pyd
@@ -21,3 +40,6 @@ __pycache__/
 *.pywz
 *.pyzw
 *.pyzwz
+
+# Other files
+*.sif
