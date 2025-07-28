@@ -29,6 +29,7 @@ class BaseFFN(pl.LightningModule):
         init_lr: float = 1e-4,
         max_lr: float = 1e-3,
         final_lr: float = 1e-4,
+        gamma: float = 0.98,
     ):
         super().__init__()
         if metrics is None:
@@ -44,6 +45,7 @@ class BaseFFN(pl.LightningModule):
         self.init_lr = init_lr
         self.max_lr = max_lr
         self.final_lr = final_lr
+        self.gamma = gamma
 
     def forward(self, FP_inputs: Tensor, agent_input: Tensor) -> Tensor:
         return self.predictor(FP_inputs, agent_input)
@@ -57,7 +59,7 @@ class BaseFFN(pl.LightningModule):
 
         l = self.loss_fn(preds, targets)
         self.log(
-            "train_loss",
+            "loss/train_loss",
             l,
             batch_size=len(batch[0]),
             prog_bar=True,
@@ -73,7 +75,7 @@ class BaseFFN(pl.LightningModule):
 
         val_loss = self.loss_fn(preds, targets)
         self.log(
-            "val_loss",
+            "loss/val_loss",
             val_loss,
             batch_size=len(batch[0]),
             prog_bar=True,
@@ -94,20 +96,23 @@ class BaseFFN(pl.LightningModule):
 
         return val_loss
 
-    def on_train_epoch_start(self) -> None:
+    # def on_train_epoch_start(self) -> None:
+    #     lr = self.trainer.optimizers[0].param_groups[0]["lr"]
+    #     self.log("learning_rate", lr, on_epoch=True, on_step=False, sync_dist=True)
+
+    def on_train_batch_end(self, outputs, batch, batch_idx) -> None:
         lr = self.trainer.optimizers[0].param_groups[0]["lr"]
-        self.log("learning_rate", lr, on_epoch=True, on_step=False, sync_dist=True)
+        self.log("learning_rate", lr, on_epoch=False, on_step=True, sync_dist=True)
+        self.log("epoch", self.current_epoch, on_epoch=True, on_step=False, sync_dist=True)
 
     def configure_optimizers(self):
-        opt = Adam(self.parameters(), lr=self.init_lr)
+        # TODO: sync update to quarc
+        opt = Adam(self.parameters())
         scheduler = OneCycleLR(
             opt,
             max_lr=self.max_lr,
             total_steps=self.trainer.estimated_stepping_batches,
-            pct_start=0.3,
-            div_factor=10,
-            final_div_factor=1e4,
-            anneal_strategy="cos",
+            div_factor=25,  # FIXME:change back to 25?
         )
 
         return {
@@ -117,49 +122,6 @@ class BaseFFN(pl.LightningModule):
                 "interval": "step",
             },
         }
-
-    @classmethod
-    def load_from_file_custom(cls, logger_dir: str, checkpoint_name: str, device: str = "cuda"):
-        """Load a FFN model from a checkpoint and args.yaml file."""
-        PREDICTOR_MAP = {
-            "AgentFFN": FFNAgentHead,
-            "TemperatureFFN": FFNTemperatureHead,
-            "ReactantAmountFFN": FFNReactantAmountHead,
-            "AgentAmountFFN": FFNAgentAmountHead,
-            "AgentFFNWithRxnClass": FFNAgentHeadWithRxnClass,
-        }
-        predictor_cls = PREDICTOR_MAP.get(cls.__name__)
-        if predictor_cls is None:
-            raise ValueError(f"Unsupported model class: {cls.__name__}")
-
-        # Load checkpoint and args
-        checkpoint = torch.load(f"{logger_dir}/{checkpoint_name}.ckpt")
-        hparams = checkpoint.get("hyper_parameters", {})
-
-        model_args_path = logger_dir + "/args.yaml"
-        model_args = yaml.load(open(model_args_path, "r"), Loader=yaml.FullLoader)
-        args = TrainArgs().from_dict(model_args)
-
-        # Initialize predictor
-        predictor = predictor_cls(
-            fp_dim=args.FP_length,
-            agent_input_dim=args.num_classes,
-            output_dim=args.output_size,
-            hidden_dim=args.hidden_size,
-            n_blocks=args.n_blocks,
-            activation=args.activation,
-        )
-
-        # Initialize and load model
-        model = cls(
-            predictor=predictor,
-            metrics=hparams.get("metrics", []),
-        )
-        model.load_state_dict(checkpoint["state_dict"])
-        model.to(device)
-        model.eval()
-
-        return model
 
 
 class AgentFFN(BaseFFN):
@@ -179,8 +141,9 @@ class AgentFFN(BaseFFN):
         FP_inputs, a_inputs, targets, weights = batch
         preds = self(FP_inputs, a_inputs)
         l = self.loss_fn(preds, targets, weights)
+
         self.log(
-            "train_loss",
+            "loss/train_loss",
             l,
             batch_size=len(batch[0]),
             prog_bar=True,
@@ -197,7 +160,7 @@ class AgentFFN(BaseFFN):
 
         val_loss = self.loss_fn(preds, targets, dummy_weights)
         self.log(
-            "val_loss",
+            "loss/val_loss",
             val_loss,
             batch_size=len(batch[0]),
             prog_bar=True,
@@ -217,30 +180,19 @@ class AgentFFN(BaseFFN):
             self.log(metric_name, metric, batch_size=len(batch[0]), on_epoch=True, sync_dist=True)
         return val_loss
 
-    def configure_optimizers(self):
-        """For training, count total steps for augmented training data"""
-        opt = Adam(self.parameters(), lr=self.init_lr)
+    # def configure_optimizers(self):
+    #     """For training, count total steps for augmented training data"""
+    #     opt = Adam(self.parameters(), lr=self.init_lr)
 
-        # total_steps = self.steps_per_epoch * self.max_epochs
-        # scheduler = OneCycleLR(
-        #     opt,
-        #     max_lr=self.init_lr * 10,
-        #     total_steps=total_steps,
-        #     pct_start=0.3,
-        #     div_factor=10,
-        #     final_div_factor=1e4,
-        #     anneal_strategy="cos",
-        # )
+    #     lr_sched = {
+    #         "scheduler": ExponentialLR(optimizer=opt, gamma=self.gamma),
+    #         "interval": "epoch",
+    #     }
 
-        lr_sched = ExponentialLR(optimizer=opt, gamma=0.98)
-
-        return {
-            "optimizer": opt,
-            "lr_scheduler": {
-                "scheduler": lr_sched,
-                "interval": "step",
-            },
-        }
+    #     return {
+    #         "optimizer": opt,
+    #         "lr_scheduler": lr_sched,
+    #     }
 
 
 class AgentFFNWithRxnClass(BaseFFN):
@@ -269,7 +221,7 @@ class AgentFFNWithRxnClass(BaseFFN):
         preds = self(FP_inputs, a_inputs, rxn_class)
         l = self.loss_fn(preds, targets, weights)
         self.log(
-            "train_loss",
+            "loss/train_loss",
             l,
             batch_size=len(batch[0]),
             prog_bar=True,
@@ -286,7 +238,7 @@ class AgentFFNWithRxnClass(BaseFFN):
 
         val_loss = self.loss_fn(preds, targets, dummy_weights)
         self.log(
-            "val_loss",
+            "loss/val_loss",
             val_loss,
             batch_size=len(batch[0]),
             prog_bar=True,
@@ -350,7 +302,7 @@ class ReactantAmountFFN(BaseFFN):
 
         l = self.loss_fn(preds, targets)
         self.log(
-            "train_loss",
+            "loss/train_loss",
             l,
             batch_size=len(batch[0]),
             prog_bar=True,
@@ -372,7 +324,7 @@ class ReactantAmountFFN(BaseFFN):
 
         val_loss = self.loss_fn(preds, targets)
         self.log(
-            "val_loss",
+            "loss/val_loss",
             val_loss,
             batch_size=len(batch[0]),
             on_step=False,
@@ -406,7 +358,7 @@ class AgentAmountFFN(BaseFFN):
 
         l = self.loss_fn(preds, targets)
         self.log(
-            "train_loss",
+            "loss/train_loss",
             l,
             batch_size=len(batch[0]),
             prog_bar=True,
@@ -426,7 +378,7 @@ class AgentAmountFFN(BaseFFN):
 
         val_loss = self.loss_fn(preds, targets)
         self.log(
-            "val_loss",
+            "loss/val_loss",
             val_loss,
             batch_size=len(batch[0]),
             on_step=False,

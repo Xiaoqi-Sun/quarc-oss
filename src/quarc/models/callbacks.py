@@ -29,7 +29,8 @@ class FFNGreedySearchCallback(pl.Callback):
         if batch_idx not in self.track_batch_indices:
             return
 
-        FP_inputs, a_inputs, a_targets, rxn_class = batch
+        # FP_inputs, a_inputs, a_targets, rxn_class = batch
+        FP_inputs, a_inputs, a_targets = batch
         batch_size = a_inputs.shape[0]
 
         generated_seqs = a_inputs.clone()  # [batch_size, seq_len]
@@ -44,9 +45,7 @@ class FFNGreedySearchCallback(pl.Callback):
                 break
 
             with torch.no_grad():
-                logits = pl_module(
-                    FP_inputs[active_seqs], generated_seqs[active_seqs], rxn_class[active_seqs]
-                )
+                logits = pl_module(FP_inputs[active_seqs], generated_seqs[active_seqs])
 
                 logits_masked = torch.where(
                     generated_seqs[active_seqs] == 1,

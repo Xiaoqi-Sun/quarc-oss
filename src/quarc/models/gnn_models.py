@@ -42,6 +42,7 @@ class BaseGNN(pl.LightningModule):
         init_lr: float = 1e-4,
         max_lr: float = 1e-3,
         final_lr: float = 1e-4,
+        gamma: float = 0.98,
         X_d_transform: ScaleTransform | None = None,
     ):
         super().__init__()
@@ -69,6 +70,7 @@ class BaseGNN(pl.LightningModule):
         self.init_lr = init_lr
         self.max_lr = max_lr
         self.final_lr = final_lr
+        self.gamma = gamma
 
     @property
     def output_dim(self) -> int:
@@ -120,7 +122,7 @@ class BaseGNN(pl.LightningModule):
         preds = self(a_input, bmg, V_d, X_d)
         l = self.loss_fn(preds, targets)
         self.log(
-            "train_loss",
+            "loss/train_loss",
             l,
             batch_size=len(batch[0]),
             prog_bar=True,
@@ -139,7 +141,7 @@ class BaseGNN(pl.LightningModule):
         preds = self(a_input, bmg, V_d, X_d)
         val_loss = self.loss_fn(preds, targets)
         self.log(
-            "val_loss",
+            "loss/val_loss",
             val_loss,
             batch_size=len(batch[0]),
             prog_bar=True,
@@ -161,16 +163,13 @@ class BaseGNN(pl.LightningModule):
         return val_loss
 
     def configure_optimizers(self):
-        opt = Adam(self.parameters(), lr=self.init_lr)
+        opt = Adam(self.parameters())
 
         scheduler = OneCycleLR(
             opt,
             max_lr=self.max_lr,
             total_steps=self.trainer.estimated_stepping_batches,
-            pct_start=0.3,
-            div_factor=10,
-            final_div_factor=1e4,
-            anneal_strategy="cos",
+            div_factor=10,  # FIXME:change back to 25?
         )
 
         return {
@@ -185,62 +184,6 @@ class BaseGNN(pl.LightningModule):
         lr = self.trainer.optimizers[0].param_groups[0]["lr"]
         self.log("learning_rate", lr, on_epoch=True, on_step=False, sync_dist=True)
 
-    @classmethod
-    def load_from_file_custom(cls, logger_dir: str, checkpoint_name: str, device: str = "cuda"):
-        """Load a GNN model from a checkpoint and args.yaml file.
-
-        Args:
-            logger_dir: Directory containing the checkpoint and args.yaml files
-            checkpoint_name: Name of the checkpoint file
-            device: Device to load the model to ('cpu' or 'cuda')
-
-        Returns:
-            Loaded GNN model
-        """
-        PREDICTOR_MAP = {
-            "AgentGNN": GNNAgentHead,
-            "TemperatureGNN": GNNTemperatureHead,
-            "ReactantAmountGNN": GNNReactantAmountHead,
-            "AgentAmountOneshotGNN": GNNAgentAmountHead,
-            "AgentGNNWithRxnClass": GNNAgentHeadWithRxnClass,
-        }
-        predictor_cls = PREDICTOR_MAP.get(cls.__name__)
-        if predictor_cls is None:
-            raise ValueError(f"Unsupported model class: {cls.__name__}")
-
-        # Load checkpoint and args
-        checkpoint_path = logger_dir + f"/{checkpoint_name}.ckpt"
-        checkpoint = torch.load(checkpoint_path)
-        hparams = checkpoint.get("hyper_parameters", {})
-
-        model_args_path = logger_dir + "/args.yaml"
-        model_args = yaml.load(open(model_args_path, "r"), Loader=yaml.FullLoader)
-        args = TrainArgs().from_dict(model_args)
-
-        fdims = chemprop.featurizers.CondensedGraphOfReactionFeaturizer(mode_="REAC_DIFF").shape
-        message_passing = BondMessagePassing(*fdims, d_h=args.graph_hidden_size, depth=args.depth)
-        predictor = predictor_cls(
-            graph_input_dim=args.graph_hidden_size,
-            agent_input_dim=args.num_classes,
-            output_dim=args.output_size,
-            hidden_dim=args.hidden_size,
-            n_blocks=args.n_blocks,
-        )
-        aggregation = MeanAggregation()
-
-        model = cls(
-            message_passing=message_passing,
-            agg=aggregation,
-            predictor=predictor,
-            batch_norm=True,
-            metrics=hparams.get("metrics", None),
-        )
-        model.load_state_dict(checkpoint["state_dict"])
-        model.to(device)
-        model.eval()
-
-        return model
-
 
 class AgentGNN(BaseGNN):
     def loss_fn(self, preds: Tensor, targets: Tensor, weights: Tensor) -> Tensor:
@@ -253,7 +196,7 @@ class AgentGNN(BaseGNN):
         preds = self(a_input, bmg, V_d, X_d)
         l = self.loss_fn(preds, targets, weights)
         self.log(
-            "train_loss",
+            "loss/train_loss",
             l,
             batch_size=len(batch[0]),
             prog_bar=True,
@@ -269,7 +212,7 @@ class AgentGNN(BaseGNN):
 
         val_loss = self.loss_fn(preds, targets, weights)
         self.log(
-            "val_loss",
+            "loss/val_loss",
             val_loss,
             batch_size=len(batch[0]),
             prog_bar=True,
@@ -291,7 +234,7 @@ class AgentGNN(BaseGNN):
 
     def configure_optimizers(self):
         opt = Adam(self.parameters(), lr=self.init_lr)
-        lr_sched = ExponentialLR(optimizer=opt, gamma=0.98)
+        lr_sched = ExponentialLR(optimizer=opt, gamma=self.gamma)
         return {"optimizer": opt, "lr_scheduler": lr_sched}
 
 
@@ -317,7 +260,7 @@ class AgentGNNWithRxnClass(BaseGNN):
         preds = self(a_input, bmg, V_d, X_d)
         l = self.loss_fn(preds, targets, weights)
         self.log(
-            "train_loss",
+            "loss/train_loss",
             l,
             batch_size=len(batch[0]),
             prog_bar=True,
@@ -332,7 +275,7 @@ class AgentGNNWithRxnClass(BaseGNN):
         preds = self(a_input, bmg, V_d, X_d)
         val_loss = self.loss_fn(preds, targets, weights)
         self.log(
-            "val_loss",
+            "loss/val_loss",
             val_loss,
             batch_size=len(batch[0]),
             prog_bar=True,
@@ -410,7 +353,7 @@ class ReactantAmountGNN(BaseGNN):
 
         l = self.loss_fn(preds, targets)
         self.log(
-            "train_loss",
+            "loss/train_loss",
             l,
             batch_size=len(batch[0]),
             prog_bar=True,
@@ -429,7 +372,7 @@ class ReactantAmountGNN(BaseGNN):
 
         val_loss = self.loss_fn(preds, targets)
         self.log(
-            "val_loss",
+            "loss/val_loss",
             val_loss,
             batch_size=len(batch[0]),
             prog_bar=True,
@@ -465,7 +408,7 @@ class AgentAmountOneshotGNN(BaseGNN):
 
         l = self.loss_fn(preds, targets)
         self.log(
-            "train_loss",
+            "loss/train_loss",
             l,
             batch_size=len(batch[0]),
             prog_bar=True,
@@ -484,7 +427,7 @@ class AgentAmountOneshotGNN(BaseGNN):
 
         val_loss = self.loss_fn(preds, targets)
         self.log(
-            "val_loss",
+            "loss/val_loss",
             val_loss,
             batch_size=len(batch[0]),
             prog_bar=True,

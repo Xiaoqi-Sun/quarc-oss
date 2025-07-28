@@ -2,7 +2,7 @@ import argparse
 import os
 import sys
 import pickle
-import datetime
+from datetime import datetime
 import torch
 import yaml
 from pathlib import Path
@@ -16,6 +16,7 @@ from torch.utils.data import DataLoader
 from loguru import logger
 
 import quarc_parser
+
 
 class ModelFactory:
     """Factory for creating models and datasets based on argparse arguments"""
@@ -31,11 +32,11 @@ class ModelFactory:
         from quarc.models.modules.agent_standardizer import AgentStandardizer
 
         self.agent_encoder = AgentEncoder(
-            class_path=self.args.processed_data_dir / "agent_encoder/agent_encoder_list.json"
+            class_path=Path(self.args.processed_data_dir) / "agent_encoder/agent_encoder_list.json"
         )
         self.agent_standardizer = AgentStandardizer(
-            conv_rules=self.args.processed_data_dir / "agent_encoder/agent_rules_v1.json",
-            other_dict=self.args.processed_data_dir / "agent_encoder/agent_other_dict.json",
+            conv_rules=Path(self.args.processed_data_dir) / "agent_encoder/agent_rules_v1.json",
+            other_dict=Path(self.args.processed_data_dir) / "agent_encoder/agent_other_dict.json",
         )
 
     def create_model_and_data(
@@ -126,8 +127,8 @@ class ModelFactory:
             final_lr=self.args.final_lr,
         )
 
-        # Special callback for stage 1
-        greedy_callback = FFNGreedySearchCallback(track_batch_indices=range(len(val_loader)))
+        # Special callback for stage 1 - only track a few for speed
+        greedy_callback = FFNGreedySearchCallback(track_batch_indices=range(10))
         extra_callbacks = [greedy_callback]
 
         return model, train_loader, val_loader, extra_callbacks
@@ -387,7 +388,7 @@ class ModelFactory:
             batch_size=self.args.batch_size,
             num_workers=self.args.num_workers,
             shuffle=True,
-            distributed=False,
+            distributed=True,  # FIXME:
             persistent_workers=False,
             pin_memory=True,
         )
@@ -396,7 +397,7 @@ class ModelFactory:
             batch_size=self.args.batch_size,
             num_workers=self.args.num_workers,
             shuffle=False,
-            distributed=False,
+            distributed=True,  # FIXME:
             persistent_workers=False,
             pin_memory=True,
         )
@@ -732,7 +733,9 @@ class QuarcTrainer:
             torch.cuda.set_device(self.local_rank)
 
     def _setup_tblogger(self):
-        save_dir = Path("./models") / self.args.model_type.upper() / f"stage{self.args.stage}"
+        save_dir = (
+            Path(self.args.save_dir) / self.args.model_type.upper() / f"stage{self.args.stage}"
+        )
         save_dir.mkdir(parents=True, exist_ok=True)
 
         tb_logger = pl_loggers.TensorBoardLogger(
@@ -740,8 +743,7 @@ class QuarcTrainer:
             name=self.args.logger_name,
         )
 
-        if self.local_rank == 0:
-            self._save_args(tb_logger.log_dir)
+        self._save_args(tb_logger.log_dir)
 
         return tb_logger
 
@@ -767,7 +769,9 @@ class QuarcTrainer:
             val_data = pickle.load(f)
 
         if self.local_rank == 0:
-            logger.info(f"Stage {self.args.stage} data: train={len(train_data)}, val={len(val_data)}")
+            logger.info(
+                f"Stage {self.args.stage} data: train={len(train_data)}, val={len(val_data)}"
+            )
 
         return train_data, val_data
 
@@ -792,18 +796,23 @@ class QuarcTrainer:
             every_n_epochs=3 if stage == 1 else 10,
             save_top_k=-1,
         )
+        callbacks = [weights_checkpoint, full_checkpoint]
 
-        if stage == 1:
-            earlystop_callback = EarlyStopping(
-                monitor="val_greedy_exactmatch_accuracy",
-                patience=5,
-                mode="max",
-                check_on_train_epoch_end=False,
-            )
-        else:
-            earlystop_callback = EarlyStopping(monitor="accuracy", patience=15, mode="max")
-
-        callbacks = [weights_checkpoint, full_checkpoint, earlystop_callback]
+        if self.args.early_stop:
+            if stage == 1:
+                earlystop_callback = EarlyStopping(
+                    monitor="val_greedy_exactmatch_accuracy",
+                    patience=self.args.early_stop_patience,
+                    mode="max",
+                    check_on_train_epoch_end=False,
+                )
+            else:
+                earlystop_callback = EarlyStopping(
+                    monitor="accuracy",
+                    patience=self.args.early_stop_patience,
+                    mode="max",
+                )
+            callbacks.append(earlystop_callback)
 
         if extra_callbacks:
             callbacks.extend(extra_callbacks)
@@ -849,9 +858,10 @@ class QuarcTrainer:
             else:
                 trainer.fit(model, train_loader, val_loader)
 
-
         except Exception as e:
-            logger.error(f"Training failed for {self.args.model_type} stage {self.args.stage}: {e}")
+            logger.error(
+                f"Training failed for {self.args.model_type} stage {self.args.stage}: {e}"
+            )
             raise e
 
 
@@ -865,7 +875,7 @@ if __name__ == "__main__":
 
     # create logger
     os.makedirs("./logs/train", exist_ok=True)
-    dt = datetime.strftime(datetime.now(), "%y%m%d-%H%Mh")
+    dt = datetime.now().strftime("%y%m%d-%H%Mh")
     log_file = f"./logs/train/{args.logger_name}/{args.model_type}_stage{args.stage}.{dt}.log"
 
     logger.remove()

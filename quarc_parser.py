@@ -110,19 +110,21 @@ def add_train_opts(parser):
     """Training hyperparameters"""
     group = parser.add_argument_group("quarc_train")
 
-    group.add_argument("--save_dir", type=str, default="./checkpoints", help="checkpoint folder")
-    group.add_argument("--logger_name", type=str, help="logger name")
+    group.add_argument("--save-dir", type=str, default="./checkpoints", help="checkpoint folder")
+    group.add_argument("--logger-name", type=str, help="logger name")
     group.add_argument("--no-cuda", action="store_true", help="use CPU instead of GPU")
-    group.add_argument("--gpu", type=int, help="specific GPU device to use")
+    group.add_argument("--gpu", type=int, default=0, help="specific GPU device to use")
     group.add_argument("--num-workers", type=int, default=8, help="number of data loading workers")
-    group.add_argument("--checkpoint-path", type=str, help="resume from checkpoint")
+    group.add_argument("--checkpoint-path", type=str, default="", help="resume from checkpoint")
 
     # training args
     group.add_argument("--max-epochs", type=int, default=30, help="max num. of epochs")
-    group.add_argument("--batch-size", type=int, default=256, help="batch size")
-    group.add_argument("--learning-rate", type=float, default=1e-3, help="peak learning rate")
+    group.add_argument("--batch-size", type=int, default=256, help="batch size per gpu")
+    group.add_argument("--max-lr", type=float, default=1e-3, help="peak learning rate")
     group.add_argument("--init-lr", type=float, default=1e-4, help="initial learning rate")
     group.add_argument("--final-lr", type=float, default=1e-4, help="final learning rate")
+    group.add_argument("--gamma", type=float, default=0.98, help="gamma for exponential LR")
+    group
     group.add_argument(
         "--warmup-epochs",
         type=float,
@@ -142,9 +144,15 @@ def add_train_opts(parser):
 def add_predict_opts(parser):
     """Predicting options"""
     group = parser.add_argument_group("quarc_predict")
-    group.add_argument("--config_path", type=str, default="configs/ffn_pipeline.yaml", help="Pipeline config")
-    group.add_argument("--input", "-i", type=str, default="", help="Input JSON file with reactions")
-    group.add_argument("--output", "-o", type=str, default="", help="Output JSON file for predictions")
+    group.add_argument(
+        "--config-path", type=str, default="configs/ffn_pipeline.yaml", help="Pipeline config"
+    )
+    group.add_argument(
+        "--input", "-i", type=str, default="", help="Input JSON file with reactions"
+    )
+    group.add_argument(
+        "--output", "-o", type=str, default="", help="Output JSON file for predictions"
+    )
 
 
 def add_data_opts(parser):
@@ -152,20 +160,22 @@ def add_data_opts(parser):
     group = parser.add_argument_group("quarc_data_paths")
 
     group.add_argument(
-        "--processed_data_dir", type=str, default="data/processed", help="processed data with encoder files"
+        "--processed-data-dir",
+        type=str,
+        default="data/processed",
+        help="processed data with encoder files",
     )
 
     group.add_argument(
-        "--train_data_path", type=str, default="", help="stage specific train data path"
+        "--train-data-path", type=str, default="", help="stage specific train data path"
     )
     group.add_argument(
-        "--val_data_path", type=str, default="", help="stage specific val data path"
+        "--val-data-path", type=str, default="", help="stage specific val data path"
     )
-
 
 
 def add_server_opts(parser):
     group = parser.add_argument_group("quarc_server")
 
-    group.add_argument("--server_ip", help="Server IP to use", type=str, default="0.0.0.0")
-    group.add_argument("--server_port", help="Server port to use", type=int, default=9910)
+    group.add_argument("--server-ip", help="Server IP to use", type=str, default="0.0.0.0")
+    group.add_argument("--server-port", help="Server port to use", type=int, default=9910)

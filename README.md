@@ -32,14 +32,14 @@ Then follow the instructions below to use either Docker, or Singularity (if Dock
 (GPU) docker build -f Dockerfile_gpu -t ${ASKCOS_REGISTRY}/quarc:1.0-gpu .
 ```
 
-#### Using Singularity
+<!-- #### Using Singularity
 
 - Only option: build from local
 
 ```
 (CPU) singularity build -f quarc_cpu.sif singularity_cpu.def
 (GPU) singularity build -f quarc_gpu.sif singularity_gpu.def
-```
+``` -->
 
 ### Step 2/4: Download Trained Models
 
@@ -58,20 +58,19 @@ sh scripts/download_trained_models.sh
 
 GPU-based container requires a CUDA-enabled GPU and the NVIDIA Container Toolkit. By default, the first GPU will be used.
 
-#### Using Singularity
+<!-- #### Using Singularity
 
 ```
 (CPU) sh scripts/serve_cpu_in_singularity.sh
 (GPU) sh scripts/serve_gpu_in_singularity.sh
+``` -->
+
+<!-- The error messages related to torchserve logging can be safely ignored.  -->
+
+Note that these scripts start the service in the background (i.e., in detached mode). So they would need to be explicitly stopped if no longer in use
+
 ```
-
-The error messages related to torchserve logging can be safely ignored. Note that these scripts start the service in the background (i.e., in detached mode). So they would need to be explicitly stopped if no longer in use
-
-```
-
 (Docker) docker stop quarc_service
-(Singularity) singularity instance stop quarc_service
-
 ```
 
 ### Step 4/4: Query the Service
@@ -80,7 +79,7 @@ The error messages related to torchserve logging can be safely ignored. Note tha
 
 ```
 
-curl http://0.0.0.0:9420/predictions/quarc \
+curl http://0.0.0.0:9910/condition_prediction/quarc \
  --header "Content-Type: application/json" \
  --request POST \
  --data '{"smiles": ["[Br:1][CH2:2]/[CH:3]=[CH:4]/[C:5](=[O:6])[O:7][Si:8]([CH3:9])([CH3:10])[CH3:11]", "CC(C)(C)OC(=O)N1CCC(OCCO)CC1"]}'

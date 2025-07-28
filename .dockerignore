@@ -1,0 +1,23 @@
+checkpoints/*
+# data/*
+logs/*
+results/*
+temp/*
+*.sif
+mars/*
+mars_partial/*
+condrec/*
+retrained_models/*
+
+.vscode/
+.cursor/
+.gitignore
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.pyw
+*.pyz
+*.pywz
+*.pyzw
+*.pyzwz
