@@ -15,20 +15,23 @@ def load_checkpoint_smart(checkpoint_path, device):
 
 def create_ffn_model(model_class_name, params):
     from quarc.models.ffn_models import (
-        AgentFFNWithReactionClass,
+        AgentFFNWithRxnClass,
+        AgentFFN,
         TemperatureFFN,
         ReactantAmountFFN,
         AgentAmountFFN,
     )
     from quarc.models.modules.ffn_heads import (
-        FFNAgentHeadWithReactionClass,
+        FFNAgentHeadWithRxnClass,
+        FFNAgentHead,
         FFNTemperatureHead,
         FFNReactantAmountHead,
         FFNAgentAmountHead,
     )
 
     model_classes = {
-        "AgentFFNWithReactionClass": (AgentFFNWithReactionClass, FFNAgentHeadWithReactionClass),
+        "AgentFFNWithRxnClass": (AgentFFNWithRxnClass, FFNAgentHeadWithRxnClass),
+        "AgentFFN": (AgentFFN, FFNAgentHead),
         "TemperatureFFN": (TemperatureFFN, FFNTemperatureHead),
         "ReactantAmountFFN": (ReactantAmountFFN, FFNReactantAmountHead),
         "AgentAmountFFN": (AgentAmountFFN, FFNAgentAmountHead),
@@ -52,20 +55,23 @@ def create_ffn_model(model_class_name, params):
 
 def create_gnn_model(model_class_name, params):
     from quarc.models.gnn_models import (
-        AgentGNNWithReactionClass,
+        AgentGNNWithRxnClass,
+        AgentGNN,
         TemperatureGNN,
         ReactantAmountGNN,
         AgentAmountOneshotGNN,
     )
     from quarc.models.modules.gnn_heads import (
-        GNNAgentHeadWithReactionClass,
+        GNNAgentHeadWithRxnClass,
+        GNNAgentHead,
         GNNTemperatureHead,
         GNNReactantAmountHead,
         GNNAgentAmountHead,
     )
 
     model_classes = {
-        "AgentGNNWithReactionClass": (AgentGNNWithReactionClass, GNNAgentHeadWithReactionClass),
+        "AgentGNNWithRxnClass": (AgentGNNWithRxnClass, GNNAgentHeadWithRxnClass),
+        "AgentGNN": (AgentGNN, GNNAgentHead),
         "TemperatureGNN": (TemperatureGNN, GNNTemperatureHead),
         "ReactantAmountGNN": (ReactantAmountGNN, GNNReactantAmountHead),
         "AgentAmountOneshotGNN": (AgentAmountOneshotGNN, GNNAgentAmountHead),

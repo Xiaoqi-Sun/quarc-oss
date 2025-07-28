@@ -14,6 +14,7 @@ from quarc.data.datapoints import AgentRecord, ReactionDatum
 from quarc.models.modules.agent_encoder import AgentEncoder
 from quarc.models.modules.agent_standardizer import AgentStandardizer
 from quarc.settings import load as load_settings
+from quarc.models.modules.rxn_encoder import ReactionClassEncoder
 
 cfg = load_settings()
 
@@ -79,6 +80,58 @@ class ReactionDatasetBase(Dataset):
 
     def __getitem__(self, idx):
         pass
+
+
+class AgentsDatasetWithRxnClass(ReactionDatasetBase):
+    """Regular Agent Dataset for validation and testing with reaction class.
+
+    For each reaction, the input is the FP and no agent, and the target is all agents.
+    """
+
+    def __init__(
+        self,
+        data: list[ReactionDatum],
+        agent_standardizer: AgentStandardizer,
+        agent_encoder: AgentEncoder,
+        rxn_encoder: ReactionClassEncoder,
+        fp_radius: int = 3,
+        fp_length: int = 2048,
+    ):
+        """Initialize the AgentsDatasetWithReactionClass.
+
+        Args:
+            data: list of ReactionDatum
+            agent_standardizer: AgentStandardizer
+            agent_encoder: AgentEncoder
+            fp_radius: default 3
+            fp_length: default 2048
+        """
+
+        super().__init__(data, agent_standardizer, agent_encoder, fp_radius, fp_length)
+        self.rxn_encoder = rxn_encoder
+
+    def __getitem__(self, idx):
+        """Get item from index mapping.
+
+        Args:
+            idx: dataset index.
+
+        Returns:
+            FP_input: reaction fingerprint
+            a_input: empty multi-hot tensor
+            a_target: multi-hot tensor of all agents
+            rxn_class: reaction class as one-hot tensor
+        """
+
+        datum = self.data[idx]
+
+        FP_input = self.generate_reaction_fingerprint(datum)
+        rxn_class = torch.tensor(self.rxn_encoder.to_onehot(datum.rxn_class))
+
+        a_target = self.standardize_and_encode_agents(datum.agents)
+        a_input = torch.zeros_like(a_target)
+
+        return FP_input, a_input, a_target, rxn_class
 
 
 class AugmentedAgentsDataset(Dataset):
@@ -241,7 +294,6 @@ class AgentsDataset(ReactionDatasetBase):
         a_input = torch.zeros_like(a_target)
 
         return FP_input, a_input, a_target
-
 
 
 class BinnedTemperatureDataset(ReactionDatasetBase):

@@ -162,6 +162,7 @@ __pycache__/
 .vscode/
 .cursor/
 temp/
+logs/
 
 # Pistachio related files
 densities_clean_new.tsv

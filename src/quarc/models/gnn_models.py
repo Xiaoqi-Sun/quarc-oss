@@ -18,7 +18,6 @@ from torch.nn import functional as F
 from torch.optim import Adam
 from torch.optim.lr_scheduler import OneCycleLR, CosineAnnealingLR, ExponentialLR
 
-from quarc.cli.train_args import TrainArgs
 from quarc.data.gnn_dataloader import TrainingBatch_agent
 from quarc.models.modules.gnn_heads import (
     GNNAgentAmountHead,

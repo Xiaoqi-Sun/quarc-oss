@@ -2,11 +2,10 @@ import argparse
 import os
 import sys
 import pickle
-import time
+import datetime
 import torch
 import yaml
 from pathlib import Path
-from typing import Tuple, List, Any
 
 import lightning.pytorch as pl
 from lightning.pytorch import loggers as pl_loggers
@@ -41,7 +40,7 @@ class ModelFactory:
 
     def create_model_and_data(
         self, train_data, val_data
-    ) -> Tuple[pl.LightningModule, DataLoader, DataLoader, List]:
+    ) -> tuple[pl.LightningModule, DataLoader, DataLoader, list]:
         """Create model and data loaders for the specified stage"""
 
         if self.args.model_type == "ffn":
@@ -864,11 +863,14 @@ if __name__ == "__main__":
 
     args, unknown = parser.parse_known_args()
 
-    # Create logger
+    # create logger
+    os.makedirs("./logs/train", exist_ok=True)
+    dt = datetime.strftime(datetime.now(), "%y%m%d-%H%Mh")
+    log_file = f"./logs/train/{args.logger_name}/{args.model_type}_stage{args.stage}.{dt}.log"
+
     logger.remove()
     logger.add(sys.stderr, level="INFO", colorize=True)
-    os.makedirs("./logs/train", exist_ok=True)
-    log_file = f"./logs/train/{args.logger_name}/{args.model_type}_stage{args.stage}.log"
+
     logger.add(log_file, level="INFO")
 
     # Train the stage

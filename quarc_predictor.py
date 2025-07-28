@@ -1,7 +1,7 @@
 import json
 import torch
 from pathlib import Path
-from typing import List, Dict, Any, Optional, Union
+from typing import Any
 import argparse
 
 from chemprop.featurizers import CondensedGraphOfReactionFeaturizer
@@ -10,37 +10,30 @@ from loguru import logger
 import quarc_parser
 from quarc.models.modules.agent_encoder import AgentEncoder
 from quarc.models.modules.agent_standardizer import AgentStandardizer
-from quarc.models.modules.rxn_encoder import ReactionClassEncoder
 from quarc.data.datapoints import AgentRecord, ReactionDatum
 from quarc.data.eval_datasets import EvaluationDatasetFactory
 from quarc.data.binning import BinningConfig
 from quarc.utils.smiles_utils import parse_rxn_smiles
+from quarc.predictors.base import PredictionList
 from quarc.predictors.model_factory import load_models_from_yaml
 from quarc.predictors.multistage_predictor import EnumeratedPredictor
 
 
-def prepare_reaction_data(input_data: list[dict[str, Any]]) -> list[ReactionDatum]:
+def prepare_reaction_data(rxn_smiles: str) -> ReactionDatum:
     """Convert input data to ReactionDatum objects"""
 
-    reactions = []
-    for i, item in enumerate(input_data):  # FIXME: check input data format
-        rxn_smiles = item["rxn_smiles"]
-        reactants, agents, products = parse_rxn_smiles(rxn_smiles)
+    reactants, agents, products = parse_rxn_smiles(rxn_smiles)
 
-        reactions.append(
-            ReactionDatum(
-                rxn_smiles=rxn_smiles,
-                reactants=[AgentRecord(smiles=r, amount=None) for r in reactants],
-                agents=[AgentRecord(smiles=a, amount=None) for a in agents],
-                products=[AgentRecord(smiles=p, amount=None) for p in products],
-                rxn_class="unknown",
-                document_id=f"reaction_{i}",
-                date=None,
-                temperature=None,
-            )
-        )
-
-    return reactions
+    return ReactionDatum(
+        rxn_smiles=rxn_smiles,
+        reactants=[AgentRecord(smiles=r, amount=None) for r in reactants],
+        agents=[AgentRecord(smiles=a, amount=None) for a in agents],
+        products=[AgentRecord(smiles=p, amount=None) for p in products],
+        rxn_class=None,
+        document_id=None,
+        date=None,
+        temperature=None,
+    )
 
 
 class QuarcPredictor:
@@ -67,17 +60,17 @@ class QuarcPredictor:
 
     def _initialize_components(self):
         self.agent_encoder = AgentEncoder(
-            class_path=self.args.processed_data_dir / "agent_encoder/agent_encoder_list.json"
+            class_path=Path(self.args.processed_data_dir) / "agent_encoder/agent_encoder_list.json"
         )
         self.agent_standardizer = AgentStandardizer(
-            conv_rules=self.args.processed_data_dir / "agent_encoder/agent_rules_v1.json",
-            other_dict=self.args.processed_data_dir / "agent_encoder/agent_other_dict.json",
+            conv_rules=Path(self.args.processed_data_dir) / "agent_encoder/agent_rules_v1.json",
+            other_dict=Path(self.args.processed_data_dir) / "agent_encoder/agent_other_dict.json",
         )
         self.featurizer = CondensedGraphOfReactionFeaturizer(mode_="REAC_DIFF")
         self.binning_config = BinningConfig.default()  # TODO: allow to be set by user
 
     def _load_models(self):
-        config_file = self.config_path
+        config_file = Path(self.config_path)
         if not config_file.exists():
             raise FileNotFoundError(f"Model config not found: {config_file}")
 
@@ -95,7 +88,9 @@ class QuarcPredictor:
             use_geometric=weights["use_geometric"],
         )
 
-    def _format_prediction_results(self, predictions, top_k: int = 5) -> Dict[str, Any]:
+    def _format_prediction_results(
+        self, predictions: PredictionList, top_k: int = 10
+    ) -> dict[str, Any]:
         """Format prediction results into structured output"""
 
         temp_labels = self.binning_config.get_bin_labels("temperature")
@@ -139,11 +134,9 @@ class QuarcPredictor:
 
         return results
 
-    def predict_batch(
-        self, input_data: list[dict[str, Any]], top_k: int = 5
-    ) -> list[dict[str, Any]]:
-
-        reactions = prepare_reaction_data(input_data)
+    def predict_batch(self, input_smiles: list[str], top_k: int = 10) -> list[dict[str, Any]]:
+        # prepare smiles to ReactionInput
+        reactions = [prepare_reaction_data(s) for s in input_smiles]
         dataset = EvaluationDatasetFactory.for_inference(
             data=reactions,
             agent_standardizer=self.agent_standardizer,
@@ -160,66 +153,18 @@ class QuarcPredictor:
 
         return all_results
 
-    def predict(self, smiles_list: List[str], top_k: int = 5) -> List[Dict[str, Any]]:
-        """
-        Simple prediction method that takes a list of SMILES strings
-        
-        Args:
-            smiles_list: List of reaction SMILES strings
-            top_k: Number of top predictions to return
-            
-        Returns:
-            List of prediction results, one per SMILES
-        """
-        # Convert SMILES list to the format expected by predict_batch
-        input_data = []
-        for i, rxn_smiles in enumerate(smiles_list):
-            input_data.append({
-                "rxn_smiles": rxn_smiles,
-                "rxn_class": "0.0.0",  # Default for open-source
-                "doc_id": f"reaction_{i}"
-            })
-        
-        return self.predict_batch(input_data, top_k=top_k)
-
-    def predict_from_file(self, input_file: str, output_file: str, top_k: int = 5):
-        """file-based prediction"""
-
-        with open(input_file, "r") as f:
-            input_data = json.load(f)
-
-        results = self.predict_batch(input_data, top_k=top_k)
-
-        with open(output_file, "w") as f:
-            json.dump(results, f, indent=2)
-
-        logger.info(f"Predictions saved to: {output_file}")
-
-
-# def create_predictor_for_serving(
-#     config_path: str = "ffn_pipeline.yaml", device: str = "auto", use_reaction_class: bool = True
-# ) -> QuarcPredictor:
-#     """
-#     Create QUARC predictor instance for serving applications
-
-#     Args:
-#         config_path: Pipeline config file
-#         device: Device to use
-#         use_reaction_class: Whether to use reaction classification
-
-#     Returns:
-#         Initialized QuarcPredictor instance
-#     """
-
-#     return QuarcPredictor(
-#         config_path=config_path, device=device, use_reaction_class=use_reaction_class
-#     )
-
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser("quarc inference")
     quarc_parser.add_predict_opts(parser)
+    quarc_parser.add_data_opts(parser)
     args, unknown = parser.parse_known_args()
 
     predictor = QuarcPredictor(args)
-    predictor.predict_from_file(args.input, args.output, args.top_k)
+
+    example_input = [
+        "[CH3:1][O:2][C:3](=[O:4])[c:5]1[cH:6][cH:7][c:8]2[nH:9][c:10]([c:11]([c:12]2[cH:13]1)[CH2:14][c:15]1[cH:16][cH:17][c:18]([cH:19][c:20]1[Cl:21])I)[CH3:22].[CH3:23][C:24]([CH3:25])([CH3:26])[SH:27]>c1ccc(cc1)[P](c1ccccc1)(c1ccccc1)[Pd]([P](c1ccccc1)(c1ccccc1)c1ccccc1)([P](c1ccccc1)(c1ccccc1)c1ccccc1)[P](c1ccccc1)(c1ccccc1)c1ccccc1.CCCCN(CCCC)CCCC.CN(C)C=O>[CH3:1][O:2][C:3](=[O:4])[c:5]1[cH:6][cH:7][c:8]2[nH:9][c:10]([c:11]([c:12]2[cH:13]1)[CH2:14][c:15]1[cH:16][cH:17][c:18]([cH:19][c:20]1[Cl:21])[S:27][C:24]([CH3:23])([CH3:25])[CH3:26])[CH3:22]",
+        "Cl.[O:1]=[C:2]1[CH2:3][CH2:4][CH:5]([C:6]([NH:7]1)=[O:8])[N:9]1[CH2:10][c:11]2[c:12]([cH:13][cH:14][cH:15][c:16]2[O:17][CH2:18][c:19]2[cH:20][cH:21][cH:22][c:23]([cH:24]2)[CH2:25]Br)[C:26]1=[O:27].[F:28][c:29]1[cH:30][cH:31][c:32]([cH:33][cH:34]1)[CH:35]1[CH2:36][CH2:37][NH:38][CH2:39][CH2:40]1>CC(C)N(CC)C(C)C.CC#N>[O:1]=[C:2]1[CH2:3][CH2:4][CH:5]([C:6]([NH:7]1)=[O:8])[N:9]1[CH2:10][c:11]2[c:16]([cH:15][cH:14][cH:13][c:12]2[C:26]1=[O:27])[O:17][CH2:18][c:19]1[cH:20][cH:21][cH:22][c:23]([cH:24]1)[CH2:25][N:38]1[CH2:37][CH2:36][CH:35]([CH2:40][CH2:39]1)[c:32]1[cH:31][cH:30][c:29]([cH:34][cH:33]1)[F:28]",
+    ]
+    res = predictor.predict_batch(example_input, top_k=3)
+    print(res)

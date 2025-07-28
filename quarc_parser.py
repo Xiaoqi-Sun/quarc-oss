@@ -142,10 +142,9 @@ def add_train_opts(parser):
 def add_predict_opts(parser):
     """Predicting options"""
     group = parser.add_argument_group("quarc_predict")
-    group.add_argument("--config_path", required=True, help="Pipeline config",)
-    group.add_argument("--input", "-i", required=True, help="Input JSON file with reactions")
-    group.add_argument("--output", "-o", required=True, help="Output JSON file for predictions")
-    group.add_argument("--top-k", "-k", type=int, default=10, help="Return top k predictions")
+    group.add_argument("--config_path", type=str, default="configs/ffn_pipeline.yaml", help="Pipeline config")
+    group.add_argument("--input", "-i", type=str, default="", help="Input JSON file with reactions")
+    group.add_argument("--output", "-o", type=str, default="", help="Output JSON file for predictions")
 
 
 def add_data_opts(parser):
@@ -153,7 +152,7 @@ def add_data_opts(parser):
     group = parser.add_argument_group("quarc_data_paths")
 
     group.add_argument(
-        "--processed_data_dir", type=str, default="", help="processed data with encoder files"
+        "--processed_data_dir", type=str, default="data/processed", help="processed data with encoder files"
     )
 
     group.add_argument(
@@ -162,6 +161,11 @@ def add_data_opts(parser):
     group.add_argument(
         "--val_data_path", type=str, default="", help="stage specific val data path"
     )
-    # group.add_argument(
-    #     "--test_data_path", type=str, default="", help="stage specific test data path"
-    # )
+
+
+
+def add_server_opts(parser):
+    group = parser.add_argument_group("quarc_server")
+
+    group.add_argument("--server_ip", help="Server IP to use", type=str, default="0.0.0.0")
+    group.add_argument("--server_port", help="Server port to use", type=int, default=9910)

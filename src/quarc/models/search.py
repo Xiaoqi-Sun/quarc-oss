@@ -96,7 +96,7 @@ def apply_geometric_average(
 def beam_search(
     model: torch.nn.Module,
     rxn_input: torch.Tensor,
-    rxn_class: torch.Tensor,
+    # rxn_class: torch.Tensor,
     num_classes: int,
     agents_input: Optional[torch.Tensor] = None,
     max_steps: int = 6,
@@ -133,7 +133,7 @@ def beam_search(
 
     if len(rxn_input.shape) == 1:
         rxn_input = rxn_input.unsqueeze(0).to(device)
-        rxn_class = rxn_class.unsqueeze(0).to(device)
+        # rxn_class = rxn_class.unsqueeze(0).to(device)
         if agents_input is not None:
             agents_input = agents_input.unsqueeze(0)
 
@@ -164,7 +164,10 @@ def beam_search(
             with torch.no_grad():
                 current_agents = current_agents.to(device)
                 # mask already selected agents with very negative logits
-                logits = model(rxn_input, current_agents, rxn_class)
+                logits = model(
+                    rxn_input, current_agents, torch.zeros(1, 2272).to(device)
+                )  # FIXME: delete placeholder
+                print(f"FIXME:delete zeros placeholder for rxn_class")
                 masked_logits = torch.where(current_agents == 1, -1e6, logits)
                 probabilities = torch.softmax(masked_logits, dim=-1)
 
@@ -212,7 +215,7 @@ def beam_search(
 
 def beam_search_gnn(
     model: torch.nn.Module,
-    batch_mol_graph: BatchMolGraph,
+    bmg: BatchMolGraph,
     V_d: torch.Tensor,
     x_d: torch.Tensor,
     num_classes: int,
@@ -275,7 +278,8 @@ def beam_search_gnn(
             with torch.no_grad():
                 current_agents = current_agents.to(device)
                 # mask already selected agents with very negative logits
-                logits = model(current_agents, batch_mol_graph, V_d, x_d)
+                logits = model(current_agents, bmg, V_d, torch.zeros(1, 2272).to(device))  #FIXME:
+                print("FIXME: delete place xd placeholder")
                 masked_logits = torch.where(current_agents == 1, -1e6, logits)
                 probabilities = torch.softmax(masked_logits, dim=-1)
 

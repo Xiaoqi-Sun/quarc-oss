@@ -8,7 +8,6 @@ from torch.nn import functional as F
 from torch.optim import Adam
 from torch.optim.lr_scheduler import OneCycleLR, ExponentialLR
 
-from quarc.cli.train_args import TrainArgs
 from quarc.models.modules.ffn_heads import (
     FFNBaseHead,
     FFNAgentAmountHead,

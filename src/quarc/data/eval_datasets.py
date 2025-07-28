@@ -91,7 +91,6 @@ class UnifiedEvaluationDataset:
 
         self.fp_radius = fp_radius
         self.fp_length = fp_length
-        print("removing rxn_class encoder")
 
     def __len__(self):
         return len(self.data)
@@ -139,7 +138,6 @@ class UnifiedEvaluationDataset:
     def _get_model_inputs(self, datum: ReactionDatum) -> dict:
         rxn_smiles = prep_rxn_smi_input(datum.rxn_smiles)
         rxn_mols = rxn_smiles_to_mols(rxn_smiles)  # (rct, pdt)
-        rxn_class = datum.rxn_class
 
         if rxn_mols[0] is None or rxn_mols[1] is None:
             raise ValueError(f"Invalid reaction: {datum.document_id}, need dummy mg")
@@ -168,7 +166,6 @@ class UnifiedEvaluationDataset:
             "mg": mg,
             "FP_inputs": FP_inputs,
             "FP_reactants": FP_reactants,
-            "rxn_class": self.rxn_class_encoder.to_onehot(rxn_class),
         }
 
     def _get_targets(self, datum: ReactionDatum) -> dict:
