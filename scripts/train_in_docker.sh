@@ -12,7 +12,6 @@ docker run --rm --shm-size=5gb --gpus '"device=0"' \
     -v "$PWD/checkpoints:/app/quarc/checkpoints" \
     -v "$PWD/data:/app/quarc/data" \
     -v "$PROCESSED_DATA_DIR:/app/quarc/data/processed" \
-    
     -t ${ASKCOS_REGISTRY}/quarc:1.0-gpu \
 python quarc_trainer.py \
     --model-type ffn \

@@ -4,10 +4,10 @@ Training, benchmarking and serving modules for reaction condition recommendation
 
 Unless otherwise specified, models are released under the same license as the source code (MIT license).
 
-## TODO (Temporary)
-
-- [ ] Add explnation for file path configuration using environment variables (don't need to delete but can perhaps priorite the environment varaible overwriting)
-- [ ]
+> [!IMPORTANT]
+> This open-source version of QUARC differs from the version described in the [paper](https://chemrxiv.org/engage/chemrxiv/article-details/686809c0c1cb1ecda020efc1). The paper version requires both a reaction SMILES and a [NameRxn](https://www.nextmovesoftware.com/namerxn.html) reaction class label as input, whereas the open-source version does not rely on any proprietary reaction classification.
+>
+> To access the full version of QUARC used in the paper, please refer to the [quarc repo](https://github.com/coleygroup/quarc), which assumes access to NameRxn's reaction types.
 
 ## Serving
 
@@ -110,7 +110,12 @@ With the service started, run
 pytest
 ```
 
-## Retraining and benchmarking (GPU Required)
+<!-- ## Retraining and benchmarking (GPU Required)
+
+The full version of quarc relies on density values from Pistachio's proprietary web app to convert volume into molar amounts. Since these values cannot be shared, this open-source version uses a manually curated density file built from publicly avaliable sources (e.g., PubChem, NIST). We provide this density file for users wishing to preprocess and retrain models.
+
+> [!Note]
+> While the pretrained open-source model was originally trained with Pistachio-provided densities, users retraining from scratch should expect slightly different behavior when using the open-source densities we supply.
 
 ### Step 1/4: Environment Setup
 
@@ -205,9 +210,9 @@ The estimated running times for benchmarking a typical dataset on a 32-core mach
 - Training: ~2 hours (4 stages)
 - Testing: ~10 mins
 
-The training parameters typically do not need to be adjusted, especially on larger datasets with more than 10,000 reactions. We leave it up to the user to adjust the training parameters in `scripts/train_in_docker.sh`, if you know what you are doing.
+The training parameters typically do not need to be adjusted, especially on larger datasets with more than 10,000 reactions. We leave it up to the user to adjust the training parameters in `scripts/train_in_docker.sh`, if you know what you are doing. -->
 
-## Converting Trained Model into Servable Archive (Optional)
+<!-- ## Converting Trained Model into Servable Archive (Optional)
 
 If you want to create servable model archives from own checkpoints (e.g., trained on different datasets),
 please refer to the archiving scripts (`scripts/archive_in_docker.sh`).
@@ -222,7 +227,7 @@ sh scripts/archive_in_docker.sh
 
 The servable model archive (.mar) will be generated under `./mars`. Serving newly archived models is straightforward; simply replace the `--models` args in `scripts/serve_{cpu,gpu}_in_{docker,singularity}.sh`
 
-with the new model name and the .mar archive. The `--models` flag for torchserve can also take multiple arguments to serve multiple model archives concurrently.
+with the new model name and the .mar archive. The `--models` flag for torchserve can also take multiple arguments to serve multiple model archives concurrently. -->
 
 ## References
 

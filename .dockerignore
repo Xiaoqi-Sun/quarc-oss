@@ -41,5 +41,8 @@ __pycache__/
 *.pyzw
 *.pyzwz
 
+**/__pycache__/
+
+
 # Other files
 *.sif
