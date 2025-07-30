@@ -1,0 +1,48 @@
+# Git files
+.git/
+.gitattributes
+.gitignore
+
+# Documentation
+README.md
+CLAUDE.md
+LICENSE
+
+# Docker files
+Dockerfile*
+.dockerignore
+
+# Development tools
+.vscode/
+.cursor/
+
+
+# Model directories (keep some but exclude large ones)
+checkpoints/
+retrained_models/
+mars/
+mars_partial/
+logs/
+temp/
+
+# Data directories
+# data/
+condrec/
+
+# Python cache and artifacts
+__pycache__/
+*.pytest_cache/
+*.pyc
+*.pyo
+*.pyd
+*.pyw
+*.pyz
+*.pywz
+*.pyzw
+*.pyzwz
+
+**/__pycache__/
+
+
+# Other files
+*.sif

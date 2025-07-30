@@ -68,11 +68,11 @@ class HierarchicalPrediction:
 
         # Extract model inputs
         FP_reactants = reaction_data.model_inputs["FP_reactants"]
-        rxn_class = reaction_data.model_inputs["rxn_class"]
+        # rxn_class = reaction_data.model_inputs["rxn_class"]
         mg = reaction_data.model_inputs["mg"]
         FP_inputs = reaction_data.model_inputs["FP_inputs"]
 
-        rxn_class_tensor = torch.tensor(rxn_class, dtype=torch.float).unsqueeze(0).to(device)
+        # rxn_class_tensor = torch.tensor(rxn_class, dtype=torch.float).unsqueeze(0).to(device)
         FP_inputs_tensor = FP_inputs.unsqueeze(0).to(device)
         FP_reactants_tensor = torch.tensor(FP_reactants, dtype=torch.float).unsqueeze(0).to(device)
         bmg = BatchMolGraph([mg])
@@ -84,7 +84,7 @@ class HierarchicalPrediction:
             agent_model_type=model_types["agent"],
             agent_encoder=agent_encoder,
             bmg=bmg,
-            rxn_class=rxn_class_tensor,
+            # rxn_class=rxn_class_tensor,
             FP_inputs=FP_inputs_tensor,
             a_input=torch.zeros(len(agent_encoder), dtype=torch.float).unsqueeze(0).to(device),
             top_k_agents=top_k_agents,
@@ -166,7 +166,7 @@ class HierarchicalPrediction:
         agent_model_type: str,
         agent_encoder,
         bmg,
-        rxn_class,
+        # rxn_class,
         FP_inputs,
         a_input,
         top_k_agents,
@@ -178,7 +178,7 @@ class HierarchicalPrediction:
                 model=agent_model,
                 bmg=bmg,
                 V_d=None,
-                x_d=rxn_class,
+                x_d=None,
                 num_classes=len(agent_encoder),
                 agents_input=a_input,
                 max_steps=6,
@@ -191,7 +191,7 @@ class HierarchicalPrediction:
             beam_results = beam_search(
                 model=agent_model,
                 rxn_input=FP_inputs,
-                rxn_class=rxn_class,
+                # rxn_class=None,
                 num_classes=len(agent_encoder),
                 agents_input=a_input,
                 max_steps=6,

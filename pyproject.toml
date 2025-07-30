@@ -9,8 +9,6 @@ description = "Quantitative condition recommendation"
 authors = [
   { name = "Xiaoqi Sun" },
 ]
-license = { file = "LICENSE" }
-readme = "README.md"
 classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: MIT License"

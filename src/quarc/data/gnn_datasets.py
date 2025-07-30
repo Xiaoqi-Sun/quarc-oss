@@ -16,7 +16,6 @@ from chemprop.utils import make_mol
 from quarc.data.datapoints import AgentRecord, ReactionDatum
 from quarc.models.modules.agent_encoder import AgentEncoder
 from quarc.models.modules.agent_standardizer import AgentStandardizer
-from quarc.models.modules.rxn_encoder import ReactionClassEncoder
 from quarc.utils.smiles_utils import prep_rxn_smi_input
 
 
@@ -62,7 +61,7 @@ def indices_to_multihot(indices: np.ndarray, n_agents: int) -> np.ndarray:
     return vector
 
 
-class AugmentedAgentReactionDatasetWithReactionClass(Dataset):
+class GNNAugmentedAgentsDataset(Dataset):
     """Lazy augmentation on the fly with index mapping"""
 
     def __init__(
@@ -70,7 +69,6 @@ class AugmentedAgentReactionDatasetWithReactionClass(Dataset):
         original_data: list[ReactionDatum],
         agent_standardizer: AgentStandardizer,
         agent_encoder: AgentEncoder,
-        rxn_encoder: ReactionClassEncoder,
         featurizer: CondensedGraphOfReactionFeaturizer,
         sample_weighting: str = "pascal",
         **kwargs,
@@ -78,7 +76,6 @@ class AugmentedAgentReactionDatasetWithReactionClass(Dataset):
         self.sample_weighting = sample_weighting
         self.agent_standardizer = agent_standardizer
         self.agent_encoder = agent_encoder
-        self.rxn_encoder = rxn_encoder
         self.featurizer = featurizer
         self.original_data = original_data
         self.index_mapping = self._create_index_mapping()
@@ -162,7 +159,7 @@ class AugmentedAgentReactionDatasetWithReactionClass(Dataset):
             a_input=indices_to_multihot(input_indices, len(self.agent_encoder)),
             mg=mg,
             V_d=None,
-            x_d=self.rxn_encoder.to_onehot(original_datum.rxn_class),
+            x_d=None,
             y=indices_to_multihot(target_indices, len(self.agent_encoder)),
             weight=weight,
             lt_mask=None,
@@ -170,7 +167,7 @@ class AugmentedAgentReactionDatasetWithReactionClass(Dataset):
         )
 
 
-class AgentReactionDatasetWithReactionClass(Dataset):
+class GNNAgentsDataset(Dataset):
     """Agent reaction dataset with no augmentation, for evaluation"""
 
     def __init__(
@@ -178,13 +175,11 @@ class AgentReactionDatasetWithReactionClass(Dataset):
         data: list[ReactionDatum],
         agent_standardizer: AgentStandardizer,
         agent_encoder: AgentEncoder,
-        rxn_encoder: ReactionClassEncoder,
         featurizer: CondensedGraphOfReactionFeaturizer,
         **kwargs,
     ):
         self.agent_standardizer = agent_standardizer
         self.agent_encoder = agent_encoder
-        self.rxn_encoder = rxn_encoder
         self.featurizer = featurizer
         self.data = data
 
@@ -222,7 +217,7 @@ class AgentReactionDatasetWithReactionClass(Dataset):
             a_input=indices_to_multihot([], len(self.agent_encoder)),
             mg=mg,
             V_d=None,
-            x_d=self.rxn_encoder.to_onehot(d.rxn_class),
+            x_d=None,
             y=indices_to_multihot(a_idxs, len(self.agent_encoder)),
             weight=1.0,
             lt_mask=None,

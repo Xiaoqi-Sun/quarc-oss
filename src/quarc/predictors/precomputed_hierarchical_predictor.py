@@ -39,6 +39,7 @@ class PrecomputedHierarchicalPredictor(BasePredictor):
 
     def _load_cache(self, cache_path: Path) -> None:
         """Load hierarchical predictions into lookup cache"""
+        # print(f"Loading hierarchical predictions from {cache_path}")
         with open(cache_path, "rb") as f:
             hierarchical_list = pickle.load(f)
 
@@ -137,6 +138,39 @@ class PrecomputedHierarchicalPredictor(BasePredictor):
 
         return enumerated_predictions[:top_k]
 
+    def _rank_enumerate_combinations_iter(
+        self, hierarchical_preds: HierarchicalPrediction
+    ) -> list[StagePrediction]:
+        """
+        Memory-efficient enumeration using generators and streaming
+        """
+        # Use generator to avoid storing all combinations in memory
+        all_predictions = self._generate_combinations_stream(hierarchical_preds)
+
+        # Use heap to keep only top-k without storing all
+        import heapq
+
+        # Keep track of top predictions using a min-heap
+        # We'll use negative scores since heapq is a min-heap
+        top_predictions = []
+
+        for stage_pred in all_predictions:
+            if len(top_predictions) < 100:  # Keep more than needed for better ranking
+                heapq.heappush(top_predictions, (-stage_pred.score, stage_pred))
+            elif stage_pred.score > -top_predictions[0][0]:
+                # Replace worst prediction if current is better
+                heapq.heapreplace(top_predictions, (-stage_pred.score, stage_pred))
+
+        # Extract and sort final results
+        final_predictions = [pred for _, pred in top_predictions]
+        final_predictions.sort(key=lambda x: x.score, reverse=True)
+
+        # Force garbage collection
+        del top_predictions
+        gc.collect()
+
+        return final_predictions
+
     def _generate_combinations_stream(
         self, hierarchical_preds: HierarchicalPrediction
     ) -> Iterator[StagePrediction]:
@@ -201,9 +235,14 @@ class PrecomputedHierarchicalPredictor(BasePredictor):
         """
         Calculate combined score (same as in EnumeratedPredictor)
         """
+        # Stage 1 & 2 scores are already individual scores
         normalized_agent_score = agent_score
         normalized_temp_score = temp_score
+
+        # Stage 3: Normalize reactant amount score using geometric mean
         normalized_reactant_score = reactant_score ** (1 / n_reactants) if n_reactants > 0 else 1.0
+
+        # Stage 4: Normalize agent amount score using geometric mean
         normalized_agent_amount_score = (
             agent_amount_score ** (1 / n_agents) if n_agents > 0 else 1.0
         )

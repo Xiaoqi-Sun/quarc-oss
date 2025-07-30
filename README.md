@@ -1,157 +1,233 @@
 # QUARC (QUAtitative Recommendations of reaction Conditions)
 
-[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
-[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![PyTorch](https://img.shields.io/badge/PyTorch-2.1.0-red.svg)](https://pytorch.org/)
+Training, benchmarking and serving modules for reaction condition recommendation with QUARC, a data-driven model for predicting agents, temperature, and equivalence ratios for organic synthesis.
 
-QUARC is a data-driven model for recommending agents, temperature, and equivalence ratios for organic synthesis.
+Unless otherwise specified, models are released under the same license as the source code (MIT license).
 
 > [!IMPORTANT]
-> The QUARC models used in the paper rely on the **[NameRxn](https://www.nextmovesoftware.com/namerxn.html) reaction classification codes** as part of the model input. Specifically, the reaction class is encoded as a one-hot vector, requiring access to the full NameRxn code mapping.
+> This open-source version of QUARC differs from the version described in the [paper](https://chemrxiv.org/engage/chemrxiv/article-details/686809c0c1cb1ecda020efc1). The paper version requires both a reaction SMILES and a [NameRxn](https://www.nextmovesoftware.com/namerxn.html) reaction class label as input, whereas the open-source version does not rely on any proprietary reaction classification.
 >
-> Users with Pistachio license may contact the authors (xiaoqis@mit.edu) to get the classification mapping file used in this work.
->
-> For users wihtout NameRxn access, we are preparing an open-source version that removes this dependency. More details will be available on [ASKCOSv2](https://gitlab.com/mlpds_mit/askcosv2) soon.
+> To access the full version of QUARC used in the paper, please refer to the [quarc repo](https://github.com/coleygroup/quarc), which assumes access to NameRxn's reaction types.
 
-## Quick Start (Inference Only)
+## Serving
 
-If you just want to predict conditions for your reactions using the provided pretrained models:
+### Step 1/4: Environment Setup
 
-### Step 1: Environment Setup
+First set up the url to the remote registry
 
-```bash
-# 1. Create conda environment
-conda env create -f environment.yml -n quarc
-conda activate quarc
-pip install --no-deps -e .
-
-# 2. Configure NameRxn Code Mapping (REQUIRED)
-export PISTACHIO_NAMERXN_PATH="/path/to/your/Pistachio Reaction Types.csv"
-
-# 3. Optional: Set data paths (uses defaults if not set)
-export DATA_ROOT="~/quarc/data"
+```
+export ASKCOS_REGISTRY=registry.gitlab.com/mlpds_mit/askcosv2/askcos2_core
 ```
 
-### Step 2: Run Predictions
+Then follow the instructions below to use either Docker, or Singularity (if Docker or root privilege is not available). For deployment/serving, building either the CPU or the GPU image would suffice. If GPUs are not available, just go with the CPU image. For retraining/benchmarking, building the GPU image is required.
+
+**Note**: only Docker is fully supported. The support for Singularity is partial. For Docker, it is recommended to add the user to the `docker` group first, so that only `docker run` is needed.
+
+#### Using Docker
+
+- Only option: build from local
 
 ```bash
-# Get predictions using the example input file
-python scripts/inference.py \
-    --input data/example_input.json \
-    --output predictions.json \
-    --config ffn_pipeline.yaml \
-    --top-k 5
+(CPU) docker build -f Dockerfile_cpu -t ${ASKCOS_REGISTRY}/quarc:1.0-cpu .
+(GPU) docker build -f Dockerfile_gpu -t ${ASKCOS_REGISTRY}/quarc:1.0-gpu .
 ```
 
-Results will be in `predictions.json` with recommended agents, temperatures, and amounts. Atom-mapped SMILES are required for the GNN models.
+### Step 2/4: Download Trained Models
 
-## Usage
+```bash
+sh scripts/download_trained_models.sh
+```
 
-### Inference with custom data
+### Step 3/4: Start the Service
 
-#### Input Format
+#### Using Docker
+
+```bash
+(CPU) sh scripts/serve_cpu_in_docker.sh
+(GPU) sh scripts/serve_gpu_in_docker.sh
+```
+
+GPU-based container requires a CUDA-enabled GPU and the NVIDIA Container Toolkit. By default, the first GPU will be used.
+
+Note that these scripts start the service in the background (i.e., in detached mode). So they would need to be explicitly stopped if no longer in use
+
+```bash
+docker stop quarc_service
+```
+
+### Step 4/4: Query the Service
+
+- Sample query
+
+```bash
+curl http://0.0.0.0:9910/condition_prediction \
+ --header "Content-Type: application/json" \
+ --request POST \
+ --data '{"smiles": ["CC(C)(C)OC(=O)O[C:1](=[O:2])[O:3][C:4]([CH3:5])([CH3:6])[CH3:7].[CH3:8][c:9]1[cH:10][c:11]([nH:12][cH:13]1)[CH:14]=[O:15]>CN(C)c1ccncc1.CC#N>[CH3:5][C:4]([CH3:6])([CH3:7])[O:3][C:1](=[O:2])[n:12]1[cH:13][c:9]([cH:10][c:11]1[CH:14]=[O:15])[CH3:8]"], "top_k": 3}'
+```
+
+- Sample response
 
 ```json
 [
+  // one per reaction SMILES
   {
-    "rxn_smiles": "[CH3:1][O:2][C:3]...",
-    "rxn_class": "1.8.7",
-    "doc_id": "my_reaction_1"
-  }
+    "predictions": [
+      {
+        "rank": int,
+        "agents": List[str],
+        "temperature": str,
+        "reactant_amounts": [
+          {
+            "reactant": str,
+            "amount_range": str
+          },
+          ...
+        ],
+        "agent_amounts": [
+          {
+            "agent": str,
+            "amount_range": str
+          },
+          ...
+        ],
+        "score": float
+      },
+     // ... up to top_k predictions per reaction SMILES
+    ]
+  },
+  ...
 ]
 ```
 
-#### Model Options
+### Unit Test for Serving (Optional)
+
+Requirement: `requests` and `pytest` libraries (pip installable)
+
+With the service started, run
 
 ```bash
-# FFN models (works with any SMILES)
-python scripts/inference.py \
-    --input input.json \
-    --output predictions.json \
-    --config ffn_pipeline.yaml \
-    --top-k 5
-
-# GNN models (requires atom-mapped SMILES)
-python scripts/inference.py \
-    --input input.json \
-    --output predictions.json \
-    --config gnn_pipeline.yaml \
-    --top-k 5
+pytest
 ```
 
-<!-- #### Output Format
+<!-- ## Retraining and benchmarking (GPU Required)
 
-Results include ranked predictions with confidence scores, agent SMILES, temperature ranges, and equivalence ratios. See [example output](data/example_output.json). -->
+The full version of quarc relies on density values from Pistachio's proprietary web app to convert volume into molar amounts. Since these values cannot be shared, this open-source version uses a manually curated density file built from publicly avaliable sources (e.g., PubChem, NIST). We provide this density file for users wishing to preprocess and retrain models.
 
-<!-- ### Benchmarking
+> [!Note]
+> While the pretrained open-source model was originally trained with Pistachio-provided densities, users retraining from scratch should expect slightly different behavior when using the open-source densities we supply.
 
-To evaluate QUARC on your own test sets:
+### Step 1/4: Environment Setup
 
-```bash
-# Run evaluation with ground truth conditions
-python scripts/evaluate.py \
-    --input data/test_reactions.json \
-    --config configs/eval_config.yaml
-``` -->
+Follow the instructions in Step 1/4 in the Serving section to build the GPU docker image. It should have the name `${QUARC_REGISTRY}/quarc:1.0-gpu`
 
-## Development and Retraining
+Note: the Docker needs to be rebuilt before running whenever there is any change in code.
 
-> **Note**: Requires Pistachio's density data and NameRxn access
+### Step 2/4: Data Preparation
 
-### Environment Setup
+Note that the preprocessing stage requires open-source reaction classification (no proprietary NameRxn needed). Various reaction classification tools are available in the community including RDKit reaction fingerprints.
 
-```bash
-# 1. Create conda environment
-conda env create -f environment.yml -n quarc
-conda activate quarc
-pip install --no-deps -e .
+- Option 1: provide pre-split reaction data
 
-# 2. Configure paths
-export DATA_ROOT="~/quarc/data"
-export PISTACHIO_DENSITY_PATH="/path/to/density.tsv"
-export PISTACHIO_NAMERXN_PATH="/path/to/Pistachio Reaction Types.csv"
+Prepare the raw .csv files for train, validation and test. The required columns are "rxn_smiles" and "conditions" (containing agent SMILES, temperature, and amounts). This is the typical setting, where the pre-split files are supplied.
 
-# Alternatively, edit the config file
-nano configs/quarc_config.yaml
+You can also include other columns in the .csv files, which will all be saved during preprocessing (in `reactions.processed.json.gz`).
+
+- Option 2: provide unsplit reaction data
+
+It is also possible to supply a single .csv file containing all reactions and let the preprocessing engine handle the splitting. In this case, by default, reactions with failed condition extraction will be filtered out, after which the remaining reactions will be deduplicated, split into train/val/test splits.
+
+### Step 3/4: Path Configuration
+
+- Case 1: if pre-split reaction data is provided
+
+Configure the environment variables in `./scripts/benchmark_in_docker_presplit.sh`, especially the paths, to point to the _absolute_ paths of raw files and desired output paths.
+
 ```
 
-### Data Preprocessing
+# benchmark_in_docker_presplit.sh
 
-Configure the preprocessing pipeline in `configs/preprocess_config.yaml`, replace the raw directory with your extracted Pistachio folder and other paths as needed.
+...
+export DATA_NAME="my_new_reactions"
+export TRAIN_FILE=$PWD/new_data/raw_train.csv
+export VAL_FILE=$PWD/new_data/raw_val.csv
+export TEST_FILE=$PWD/new_data/raw_test.csv
+...
 
-```bash
-python scripts/preprocess.py --config configs/preprocess_config.yaml --all
 ```
 
-### Model Training
+- Case 2: if unsplit reaction data is provided
 
-```bash
-python scripts/ffn_train.py --stage 1 \
-    --batch-size 256 \
-    --max-epochs 30 \
-    --save-dir ./train_log \
-    --logger-name stage1 \
-    --FP_radius 3 \
-    --FP_length 2048 \
-    --hidden_size 1024 \
-    --n_blocks 2 \
-    --init_lr 1e-4
+Configure the environment variables in `./scripts/benchmark_in_docker_unsplit.sh`, especially the paths, to point to the _absolute_ paths of the raw file and desired output paths.
+
 ```
 
-or
+# benchmark_in_docker_unsplit.sh
 
-```bash
-python scripts/gnn_train.py --stage 1 \
-    --batch-size 256 \
-    --max-epochs 30 \
-    --save-dir ./train_log \
-    --logger-name stage1 \
-    --graph_hidden_size 300 \
-    --depth 3 \
-    --hidden_size 1024 \
-    --n_blocks 2 \
-    --init_lr 1e-4
+...
+export DATA_NAME="my_new_reactions"
+export ALL_REACTION_FILE=$PWD/new_data/all_reactions.csv
+...
+
 ```
+
+the default train/val/test ratio is 98:1:1, which can be adjusted too. For example, if you want to use most of the data for training and very little for validation or testing,
+
+```
+
+# benchmark_in_docker_unsplit.sh
+
+...
+bash scripts/preprocess_in_docker.sh --split_ratio 99:1:0
+bash scripts/train_in_docker.sh
+bash scripts/predict_in_docker.sh
+
+```
+
+### Step 4/4: Training and Benchmarking
+
+Run benchmarking on a machine with GPU using
+
+```
+
+sh scripts/benchmark_in_docker_presplit.sh
+
+```
+
+for pre-split data, or
+
+```
+
+sh scripts/benchmark_in_docker_unsplit.sh
+
+```
+
+for unsplit data. This will run the preprocessing, training and predicting for the QUARC model with top-n accuracies up to n=10 as the final outputs. Progress and result logs will be saved under `./logs`.
+
+The estimated running times for benchmarking a typical dataset on a 32-core machine with 1 RTX3090 GPU are
+
+- Preprocessing: ~20 mins
+- Training: ~2 hours (4 stages)
+- Testing: ~10 mins
+
+The training parameters typically do not need to be adjusted, especially on larger datasets with more than 10,000 reactions. We leave it up to the user to adjust the training parameters in `scripts/train_in_docker.sh`, if you know what you are doing. -->
+
+<!-- ## Converting Trained Model into Servable Archive (Optional)
+
+If you want to create servable model archives from own checkpoints (e.g., trained on different datasets),
+please refer to the archiving scripts (`scripts/archive_in_docker.sh`).
+Change the arguments accordingly in the script before running.
+It's mostly bookkeeping by replacing the data name and/or checkpoint paths; the script should be self-explanatory. Then execute the scripts with
+
+```
+
+sh scripts/archive_in_docker.sh
+
+```
+
+The servable model archive (.mar) will be generated under `./mars`. Serving newly archived models is straightforward; simply replace the `--models` args in `scripts/serve_{cpu,gpu}_in_{docker,singularity}.sh`
+
+with the new model name and the .mar archive. The `--models` flag for torchserve can also take multiple arguments to serve multiple model archives concurrently. -->
 
 ## References
 
