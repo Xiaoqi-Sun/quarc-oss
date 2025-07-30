@@ -2,62 +2,21 @@ def add_preprocess_opts(parser):
     """Data and path options"""
     group = parser.add_argument_group("quarc_preprocess")
 
+    group.add_argument("--config", type=str, default="", help="preprocess config path")
+    group.add_argument("--chunk_json", action="store_true", help="run chunk data")
     group.add_argument(
-        "--config",
-        type=str,
-        default="preprocess_config.yaml",
-        help="path to preprocess config yaml file",
+        "--collect_dedup", action="store_true", help="run data collection and deduplication"
     )
+    group.add_argument("--generate_vocab", action="store_true", help="run generate vocab")
+    group.add_argument("--init_filter", action="store_true", help="run initial filtering")
+    group.add_argument("--split", action="store_true", help="run train/val/test split")
+    group.add_argument("--stage1_filter", action="store_true", help="run agent filtering")
+    group.add_argument("--stage2_filter", action="store_true", help="run temperature filtering")
     group.add_argument(
-        "--chunk_json",
-        action="store_true",
-        help="Run data organization step",
+        "--stage3_filter", action="store_true", help="run reactant amount filtering"
     )
-    group.add_argument(
-        "--collect_dedup",
-        action="store_true",
-        help="Run data collection and deduplication",
-    )
-    group.add_argument(
-        "--generate_vocab",
-        action="store_true",
-        help="Run agent class generation",
-    )
-    group.add_argument(
-        "--init_filter",
-        action="store_true",
-        help="Run initial filtering",
-    )
-    group.add_argument(
-        "--split",
-        action="store_true",
-        help="Run train/val/test split",
-    )
-    group.add_argument(
-        "--stage1_filter",
-        action="store_true",
-        help="Run agent filtering stage",
-    )
-    group.add_argument(
-        "--stage2_filter",
-        action="store_true",
-        help="Run temperature filtering stage",
-    )
-    group.add_argument(
-        "--stage3_filter",
-        action="store_true",
-        help="Run agent amount filtering stage",
-    )
-    group.add_argument(
-        "--stage4_filter",
-        action="store_true",
-        help="Run reactant amount filtering stage",
-    )
-    group.add_argument(
-        "--all",
-        action="store_true",
-        help="Run complete pipeline",
-    )
+    group.add_argument("--stage4_filter", action="store_true", help="run agent amount filtering")
+    group.add_argument("--all", action="store_true", help="run complete pipeline")
 
 
 def add_model_opts(parser):
@@ -72,10 +31,7 @@ def add_model_opts(parser):
         help="training stage, stage 1: agents, stage 2: temperature, stage 3: reactant_amounts, stage 4: agent_amounts",
     )
     group.add_argument(
-        "--model-type",
-        required=True,
-        choices=["ffn", "gnn"],
-        help="model architecture",
+        "--model-type", required=True, choices=["ffn", "gnn"], help="model architecture"
     )
     group.add_argument("--seed", type=int, default=42, help="random seed")
 
@@ -145,7 +101,10 @@ def add_predict_opts(parser):
     """Predicting options"""
     group = parser.add_argument_group("quarc_predict")
     group.add_argument(
-        "--config-path", type=str, default="configs/hybrid_pipeline_oss.yaml", help="Pipeline config"
+        "--config-path",
+        type=str,
+        default="configs/hybrid_pipeline_oss.yaml",
+        help="Pipeline config",
     )
     group.add_argument(
         "--input", "-i", type=str, default="", help="Input JSON file with reactions"

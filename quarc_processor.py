@@ -27,8 +27,12 @@ This script implements a multi-stage preprocessing pipeline for reaction data:
     - Stage 3: Reactant amount ratios and uniqueness
     - Stage 4: Agent amount ratios and solvent checks
 """
-
+import argparse
+import os
+import sys
+from datetime import datetime
 import yaml
+import re
 from pathlib import Path
 from loguru import logger
 from typing import Optional, Dict, Any
@@ -45,50 +49,68 @@ from quarc.preprocessing.condition_filter import (
     run_stage3_filters,
     run_stage4_filters,
 )
+import quarc_parser
 
+
+def substitute_env_vars(config_dict):
+    """Recursively substitute environment variables in config dictionary."""
+    if isinstance(config_dict, dict):
+        return {k: substitute_env_vars(v) for k, v in config_dict.items()}
+    elif isinstance(config_dict, list):
+        return [substitute_env_vars(item) for item in config_dict]
+    elif isinstance(config_dict, str):
+        # Match ${VAR_NAME} pattern and substitute with environment variable
+        pattern = r'\$\{([^}]+)\}'
+        matches = re.findall(pattern, config_dict)
+        result = config_dict
+        for match in matches:
+            env_value = os.environ.get(match)
+            if env_value is None:
+                raise EnvironmentError(f"Environment variable {match} is not set")
+            result = result.replace(f"${{{match}}}", env_value)
+        return result
+    else:
+        return config_dict
+
+
+def validate_required_env_vars():
+    """Validate that all required environment variables are set."""
+    required_vars = [
+        "RAW_DIR", "LOG_DIR", "DUMP_DIR", "GROUPED_DIR", "TEMP_DEDUP_DIR", 
+        "SPLIT_DIR", "FINAL_DEDUP_PATH", "FINAL_DEDUP_FILTERED_PATH",
+        "FINAL_DEDUP_FILTERED_WITH_UNCAT_PATH", "AGENT_ENCODER_LIST_PATH",
+        "AGENT_OTHER_DICT_PATH", "CONV_RULES_PATH", "STAGE1_DIR", 
+        "STAGE2_DIR", "STAGE3_DIR", "STAGE4_DIR"
+    ]
+    
+    missing_vars = [var for var in required_vars if os.environ.get(var) is None]
+    if missing_vars:
+        logger.error(f"Missing required environment variables: {missing_vars}")
+        logger.error("Please set these environment variables or use the Docker script which sets defaults.")
+        raise EnvironmentError(f"Missing environment variables: {missing_vars}")
+
+
+def load_config_with_env_vars(config_path):
+    """Load and process configuration file with environment variable substitution."""
+    logger.info(f"Loading configuration from {config_path}")
+    
+    with open(config_path, 'r') as f:
+        config = yaml.safe_load(f)
+    
+    # Substitute environment variables in the config
+    try:
+        config_with_env = substitute_env_vars(config)
+        logger.info("Successfully substituted environment variables in config")
+        return config_with_env
+    except EnvironmentError as e:
+        logger.error(f"Error substituting environment variables: {e}")
+        raise
 
 class QuarcProcessor:
     """QUARC preprocessing pipeline wrapper."""
 
-    def __init__(self, config_path: str):
-        self.config_path = Path(config_path)
-        self.config = self._load_config()
-        self._setup_logging()
-
-    def _load_config(self) -> Dict[Any, Any]:
-        with open(self.config_path, "r") as f:
-            return yaml.safe_load(f)
-
-    def _setup_logging(self):
-        log_dir = Path(self.config["logging"]["log_dir"])
-        log_dir.mkdir(exist_ok=True)
-        logger.remove()
-
-        # Main pipeline logger
-        logger.add(
-            log_dir / "preprocessing.log",
-            format="{time:YYYY-MM-DD HH:mm:ss} | {extra[stage]} | {message}",
-            level="INFO",
-            encoding="utf-8",
-            mode="a",
-            serialize=False,
-        )
-
-        # Stage-specific debug loggers
-        if self.config["logging"]["debug_logging"]:
-            stages_with_debug = self.config["logging"]["debug_stages"]
-
-            for stage_name, stage_enabled in stages_with_debug.items():
-                if stage_enabled:
-                    logger.add(
-                        log_dir / f"{stage_name}_debug.log",
-                        filter=lambda record: record.extra.get("stage") == stage_name,
-                        format="{time:YYYY-MM-DD HH:mm:ss} | {level} | {extra[stage]} | {message}",
-                        level="DEBUG",
-                        mode="a",
-                        encoding="utf-8",
-                        serialize=False,
-                    )
+    def __init__(self, config):
+        self.config = config
 
     def chunk_data(self):
         """Step 1: Data Organization"""
@@ -168,44 +190,17 @@ class QuarcProcessor:
                 raise ValueError(f"Unknown step: {step}")
 
 
-def run_preprocessing(config_path: str, steps: Optional[list] = None, all_steps: bool = False):
-    """Main entry point for QUARC preprocessing.
-
-    Args:
-        config_path (str): Path to preprocessing configuration YAML
-        steps (Optional[list]): List of specific steps to run
-        all_steps (bool): If True, run complete pipeline
-    """
-    processor = QuarcProcessor(config_path)
-
-    if all_steps or steps is None:
-        processor.process_complete_pipeline()
-    else:
-        processor.process_partial_pipeline(steps)
-
-
 if __name__ == "__main__":
-    import argparse
+    parser = argparse.ArgumentParser("quarc")
+    quarc_parser.add_preprocess_opts(parser)
+    quarc_parser.add_data_opts(parser)
+    args, unknown = parser.parse_known_args()
 
-    parser = argparse.ArgumentParser(description="Run reaction preprocessing pipeline.")
-    parser.add_argument(
-        "--config",
-        type=str,
-        default="preprocess_config.yaml",
-        help="Path to configuration YAML file",
-    )
-    parser.add_argument("--chunk_json", action="store_true")
-    parser.add_argument("--collect_dedup", action="store_true")
-    parser.add_argument("--generate_vocab", action="store_true")
-    parser.add_argument("--init_filter", action="store_true")
-    parser.add_argument("--split", action="store_true")
-    parser.add_argument("--stage1_filter", action="store_true")
-    parser.add_argument("--stage2_filter", action="store_true")
-    parser.add_argument("--stage3_filter", action="store_true")
-    parser.add_argument("--stage4_filter", action="store_true")
-    parser.add_argument("--all", action="store_true")
-
-    args = parser.parse_args()
+    # Validate environment variables before loading config
+    validate_required_env_vars()
+    
+    # Load and process config with environment variable substitution
+    config = load_config_with_env_vars(args.config)
 
     steps = []
     if args.chunk_json:
@@ -227,4 +222,18 @@ if __name__ == "__main__":
     if args.stage4_filter:
         steps.append("stage4")
 
-    run_preprocessing(config_path=args.config, steps=steps if steps else None, all_steps=args.all)
+    # create logger
+    os.makedirs("./logs/preprocess", exist_ok=True)
+    dt = datetime.now().strftime("%y%m%d-%H%Mh")
+    log_file = f"./logs/preprocess.{dt}.log"
+
+    logger.remove()
+    logger.add(sys.stderr, level="INFO", colorize=True)
+    logger.add(log_file, level="INFO")
+
+
+    processor = QuarcProcessor(config)
+    if args.all:
+        processor.process_complete_pipeline()
+    else:
+        processor.process_partial_pipeline(steps)
