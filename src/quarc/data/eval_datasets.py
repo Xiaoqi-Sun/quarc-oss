@@ -182,9 +182,13 @@ class UnifiedEvaluationDataset:
             target_temp = np.digitize(datum.temperature, self.binning_config.temperature_bins)
 
         # get target reactant amounts
-        limiting_reactant_amount = min([reactant.amount for reactant in datum.reactants])
+        reactant_amounts = [reactant.amount for reactant in datum.reactants if reactant.amount is not None]
+        if not reactant_amounts:
+            limiting_reactant_amount = 1.0  # default fallback
+        else:
+            limiting_reactant_amount = min(reactant_amounts)
         target_reactant_amounts = [
-            reactant.amount / limiting_reactant_amount
+            (reactant.amount or 0.0) / limiting_reactant_amount
             for reactant in datum.reactants[:MAX_NUM_REACTANTS]
         ]
         target_reactant_amounts = np.digitize(
@@ -196,7 +200,7 @@ class UnifiedEvaluationDataset:
         for i, agent in enumerate(datum.agents):
             standardized_smiles = self.agent_standardizer.standardize([agent.smiles])
             agent_idx = self.agent_encoder.encode(standardized_smiles)[0]
-            relative_amount = agent.amount / limiting_reactant_amount
+            relative_amount = (agent.amount or 0.0) / limiting_reactant_amount
             target_agent_amounts.append(
                 (
                     agent_idx,

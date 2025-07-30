@@ -49,7 +49,6 @@ sh scripts/download_trained_models.sh
 
 GPU-based container requires a CUDA-enabled GPU and the NVIDIA Container Toolkit. By default, the first GPU will be used.
 
-
 Note that these scripts start the service in the background (i.e., in detached mode). So they would need to be explicitly stopped if no longer in use
 
 ```
@@ -58,14 +57,14 @@ docker stop quarc_service
 
 ### Step 4/4: Query the Service
 
-- Sample query (TODO: UPDATE)
+- Sample query
 
 ```
 
-curl http://0.0.0.0:9910/condition_prediction/ \
+curl http://0.0.0.0:9910/condition_prediction \
  --header "Content-Type: application/json" \
  --request POST \
- --data '{"smiles": ["[Br:1][CH2:2]/[CH:3]=[CH:4]/[C:5](=[O:6])[O:7][Si:8]([CH3:9])([CH3:10])[CH3:11]"]}'
+ --data '{"smiles": ["[Br:1][CH2:2]/[CH:3]=[CH:4]/[C:5](=[O:6])[O:7][Si:8]([CH3:9])([CH3:10])[CH3:11]"], "top_k": 10}'
 
 ```
 

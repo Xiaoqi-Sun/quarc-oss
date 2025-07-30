@@ -44,15 +44,6 @@ class QuarcPredictor:
         self.config_path = args.config_path
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
 
-        # possible ones
-        # self.model_name = args.model_name
-        # self.data_name = args.data_name
-        # self.log_file = args.log_file
-        # self.processed_data_path = args.processed_data_path
-        # self.model_path = args.model_path
-        # self.test_output_path = args.test_output_path
-        # self.test_file = args.test_file
-
         self._initialize_components()
         self._load_models()
 
