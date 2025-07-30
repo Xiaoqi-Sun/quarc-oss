@@ -68,7 +68,7 @@ curl http://0.0.0.0:9910/condition_prediction \
 
 - Sample response
 
-```json
+```
 [
   // one per reaction SMILES
   {
