@@ -89,9 +89,9 @@ class QuarcPredictor:
         agent_labels = self.binning_config.get_bin_labels("agent")
 
         results = {
-            "doc_id": predictions.doc_id,
-            "rxn_class": predictions.rxn_class,
-            "rxn_smiles": predictions.rxn_smiles,
+            # "doc_id": predictions.doc_id,
+            # "rxn_class": predictions.rxn_class,
+            # "rxn_smiles": predictions.rxn_smiles,
             "predictions": [],
         }
 
@@ -114,12 +114,12 @@ class QuarcPredictor:
 
             prediction = {
                 "rank": i + 1,
-                "score": pred.score,
                 "agents": agent_smiles,
                 "temperature": temp_label,
                 "reactant_amounts": reactant_amounts,
                 "agent_amounts": agent_amounts,
-                "raw_scores": pred.meta if hasattr(pred, "meta") else {},
+                "score": pred.score,
+                # "raw_scores": pred.meta if hasattr(pred, "meta") else {},
             }
             results["predictions"].append(prediction)
 

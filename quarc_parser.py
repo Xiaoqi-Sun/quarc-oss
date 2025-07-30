@@ -145,7 +145,7 @@ def add_predict_opts(parser):
     """Predicting options"""
     group = parser.add_argument_group("quarc_predict")
     group.add_argument(
-        "--config-path", type=str, default="configs/ffn_pipeline.yaml", help="Pipeline config"
+        "--config-path", type=str, default="configs/hybrid_pipeline_oss.yaml", help="Pipeline config"
     )
     group.add_argument(
         "--input", "-i", type=str, default="", help="Input JSON file with reactions"

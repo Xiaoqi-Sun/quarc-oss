@@ -27,14 +27,14 @@ Then follow the instructions below to use either Docker, or Singularity (if Dock
 
 - Only option: build from local
 
-```
+```bash
 (CPU) docker build -f Dockerfile_cpu -t ${ASKCOS_REGISTRY}/quarc:1.0-cpu .
 (GPU) docker build -f Dockerfile_gpu -t ${ASKCOS_REGISTRY}/quarc:1.0-gpu .
 ```
 
 ### Step 2/4: Download Trained Models
 
-```
+```bash
 sh scripts/download_trained_models.sh
 ```
 
@@ -42,7 +42,7 @@ sh scripts/download_trained_models.sh
 
 #### Using Docker
 
-```
+```bash
 (CPU) sh scripts/serve_cpu_in_docker.sh
 (GPU) sh scripts/serve_gpu_in_docker.sh
 ```
@@ -51,7 +51,7 @@ GPU-based container requires a CUDA-enabled GPU and the NVIDIA Container Toolkit
 
 Note that these scripts start the service in the background (i.e., in detached mode). So they would need to be explicitly stopped if no longer in use
 
-```
+```bash
 docker stop quarc_service
 ```
 
@@ -59,36 +59,56 @@ docker stop quarc_service
 
 - Sample query
 
-```
-
+```bash
 curl http://0.0.0.0:9910/condition_prediction \
  --header "Content-Type: application/json" \
  --request POST \
- --data '{"smiles": ["[Br:1][CH2:2]/[CH:3]=[CH:4]/[C:5](=[O:6])[O:7][Si:8]([CH3:9])([CH3:10])[CH3:11]"], "top_k": 10}'
-
+ --data '{"smiles": ["CC(C)(C)OC(=O)O[C:1](=[O:2])[O:3][C:4]([CH3:5])([CH3:6])[CH3:7].[CH3:8][c:9]1[cH:10][c:11]([nH:12][cH:13]1)[CH:14]=[O:15]>CN(C)c1ccncc1.CC#N>[CH3:5][C:4]([CH3:6])([CH3:7])[O:3][C:1](=[O:2])[n:12]1[cH:13][c:9]([cH:10][c:11]1[CH:14]=[O:15])[CH3:8]"], "top_k": 3}'
 ```
 
-- Sample response (TODO: UPDATE)
+- Sample response
 
-```
-List of
-{
-"agents": List[Dict[str, Any]], list of top k predictions with agents, temp, amounts,
-"temp": List[float], list of top k corresponding temperatures,
-"reactants": List[Dict[str, Any]], list of top k corresponding reactants,
-"scores": List[float], list of top k corresponding confidence scores
-}
+```json
+[
+  // one per reaction SMILES
+  {
+    "predictions": [
+      {
+        "rank": int,
+        "agents": List[str],
+        "temperature": str,
+        "reactant_amounts": [
+          {
+            "reactant": str,
+            "amount_range": str
+          },
+          ...
+        ],
+        "agent_amounts": [
+          {
+            "agent": str,
+            "amount_range": str
+          },
+          ...
+        ],
+        "score": float
+      },
+     // ... up to top_k predictions per reaction SMILES
+    ]
+  },
+  ...
+]
 ```
 
-<!-- ### Unit Test for Serving (Optional)
+### Unit Test for Serving (Optional)
 
 Requirement: `requests` and `pytest` libraries (pip installable)
 
 With the service started, run
 
-```
+```bash
 pytest
-``` -->
+```
 
 ## Retraining and benchmarking (GPU Required)
 
