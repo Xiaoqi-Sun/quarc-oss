@@ -20,6 +20,23 @@ INVALID_SMILES = [
     "[B]",
 ]
 
+_reagent_conv_rules = None
+
+
+def _get_reagent_conv_rules():
+    """Lazy loading of reagent conversion rules."""
+    global _reagent_conv_rules
+    if _reagent_conv_rules is None:
+        try:
+            with open("/app/quarc/data/processed/agent_encoder/agent_rules_v1.json", "r") as f:
+                _reagent_conv_rules = json.load(f)
+        except (FileNotFoundError, json.JSONDecodeError) as e:
+            raise FileNotFoundError(
+                f"Could not load reagent conversion rules: {e}. "
+                "This file is required for preprocessing."
+            )
+    return _reagent_conv_rules
+
 
 def count_agent_distribution(config) -> Counter:
     """Count agent distribution from agents with amounts"""
@@ -52,12 +69,8 @@ def generate_agent_class(config):
 
     agent_distribution = count_agent_distribution(config)
 
-    conv_rules_path = os.path.join(os.path.dirname(__file__), "../utils/agent_rules_v1.json")
-    # load conv_rules
-    with open(conv_rules_path, "r") as f:
-        conv_rules = json.load(f)
-
     # apply conv_rules
+    conv_rules = _get_reagent_conv_rules()
     df = pd.DataFrame.from_dict(
         agent_distribution, orient="index", columns=["occurrence"]
     ).reset_index()

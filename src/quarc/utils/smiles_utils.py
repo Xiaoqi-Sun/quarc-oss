@@ -1,12 +1,10 @@
 from __future__ import print_function
 
+import os
 import pandas as pd
 from rdkit import Chem, RDLogger
 from rdkit.Chem import AllChem
-
-from quarc.settings import load as load_settings
-
-cfg = load_settings()
+from loguru import logger
 
 RDLogger.DisableLog("rdApp.*")
 
@@ -19,12 +17,20 @@ def _get_density_data():
     global _density_clean
     if _density_clean is None:
         try:
-            if cfg.pistachio_density_path is None:
-                return None
-            _density_clean = pd.read_csv(cfg.pistachio_density_path, sep="\t")
+            # Use docker path
+            _density_clean = pd.read_csv('/app/quarc/data/external/densities.tsv', sep="\t")
+            logger.info(f"Loaded density data from densities.tsv, {_density_clean.shape[0]} rows")
+
+        # v1: Silent failure
         except (FileNotFoundError, pd.errors.EmptyDataError, pd.errors.ParserError):
             _density_clean = False
             return None
+
+        # # v2: Raise error
+        # except Exception as e:
+        #     raise FileNotFoundError(f"Could not load density file from /app/quarc/data/external/densities.tsv: {e}")
+
+
     return _density_clean if _density_clean is not False else None
 
 

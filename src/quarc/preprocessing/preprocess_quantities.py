@@ -4,6 +4,7 @@ import json
 
 import pandas as pd
 from rdkit import RDLogger
+from loguru import logger
 
 from quarc.preprocessing.exceptions import *
 from quarc.utils.quantity_utils import (
@@ -12,9 +13,6 @@ from quarc.utils.quantity_utils import (
     preprocess_reagents,
 )
 from quarc.utils.smiles_utils import canonicalize_smiles
-from quarc.settings import load as load_settings
-
-cfg = load_settings()
 
 RDLogger.DisableLog("rdApp.*")
 
@@ -22,20 +20,27 @@ RDLogger.DisableLog("rdApp.*")
 _density_clean = None
 _reagent_conv_rules = None
 
+#### Function call counters ####
+_function_call_counts = {
+    "process_simple": 0,
+    "process_exceptions": 0,
+    "process_mixuture": 0,
+    "process_acidbase": 0,
+    "get_density": 0,
+    "determine_category": 0
+}
+
 
 def _get_density_data():
     """Lazy loading of density data. Raises error if unavailable and needed."""
     global _density_clean
     if _density_clean is None:
-        if cfg.pistachio_density_path is None:
-            raise InvalidDensityError(
-                "Density file path not configured. Set pistachio_density_path in your QUARC config."
-            )
         try:
-            _density_clean = pd.read_csv(cfg.pistachio_density_path, sep="\t")
+            _density_clean = pd.read_csv('/app/quarc/data/external/densities.tsv', sep="\t")
+            logger.info(f"Loaded density data from densities.tsv, {_density_clean.shape[0]} rows")
         except (FileNotFoundError, pd.errors.EmptyDataError, pd.errors.ParserError) as e:
-            raise InvalidDensityError(
-                f"Could not load density file from {cfg.pistachio_density_path}: {e}. "
+            raise FileNotFoundError(
+                f"Could not load density file from /app/quarc/data/external/densities.tsv: {e}. "
                 "This file is required for quantity preprocessing."
             )
     return _density_clean
@@ -46,7 +51,7 @@ def _get_reagent_conv_rules():
     global _reagent_conv_rules
     if _reagent_conv_rules is None:
         try:
-            with open(cfg.processed_data_dir / "agent_encoder" / "agent_rules_v1.json", "r") as f:
+            with open("/app/quarc/data/processed/agent_encoder/agent_rules_v1.json", "r") as f:
                 _reagent_conv_rules = json.load(f)
         except (FileNotFoundError, json.JSONDecodeError) as e:
             raise FileNotFoundError(
@@ -58,6 +63,10 @@ def _get_reagent_conv_rules():
 
 def get_density(s):
     """Get density from density_clean.tsv, unit is (g/L)"""
+    global _function_call_counts
+    _function_call_counts["get_density"] += 1
+    logger.debug(f"get_density called for smiles: {s} (call #{_function_call_counts['get_density']})")
+
     density_clean = _get_density_data()
     if s not in density_clean["can_smiles"].values:
         raise InvalidDensityError(f"smiles={s} not found in density_clean can_smiles")
@@ -157,17 +166,23 @@ def determine_category(component):
     1) presence of '.' in smiles
     2) presence of nested component structure
     """
+    global _function_call_counts
+    _function_call_counts["determine_category"] += 1
+
     has_dot = "." in component.get("smiles", "")
     has_nested = "components" in component
 
     if has_dot and has_nested:
-        return "HasDotAndNested"  # mixture, split by inner quantity
+        category = "HasDotAndNested"  # mixture, split by inner quantity
     elif has_dot:
-        return "HasDotOnly"  # exceptions
+        category = "HasDotOnly"  # exceptions
     elif has_nested:
-        return "HasNestedOnly"  # acid/bases, insert water and split
+        category = "HasNestedOnly"  # acid/bases, insert water and split
     else:
-        return "Simple"  # do nothing
+        category = "Simple"  # do nothing
+
+    logger.debug(f"determine_category: {category} for component with smiles: {component.get('smiles', 'None')}")
+    return category
 
 
 def is_valid_quantity(component):
@@ -545,6 +560,10 @@ def process_mixuture(component):
     -------
         constituents: A list of dictionaries containing SMILES and moles for each constituent. #TODO: add rdkit mol for each constituent
     """
+    global _function_call_counts
+    _function_call_counts["process_mixuture"] += 1
+    logger.debug(f"process_mixuture called (call #{_function_call_counts['process_mixuture']}) for component: {component.get('smiles', 'None')}")
+
     constituents = []
     s = canonicalize_smiles(component["smiles"])
     # if no valid quantity, just split and leave the quantity as None
@@ -594,6 +613,10 @@ def process_acidbase(component):
     1) add water as solvent to the solute (acid/base)
     2) using handle_molarity and handle_percentage to calculate solute and solvent moles
     """
+    global _function_call_counts
+    _function_call_counts["process_acidbase"] += 1
+    logger.debug(f"process_acidbase called (call #{_function_call_counts['process_acidbase']}) for component: {component.get('smiles', 'None')}")
+
     constituents = []
     s = canonicalize_smiles(component["smiles"])
 
@@ -718,6 +741,10 @@ def process_exceptions(component):
     Case 2: both volume and molarity present -> calculate mole for solutes (and solvent if exists)
     Case 3: only volume present -> calculate mole for the liquid or hydrate (special case NN.O)
     """
+    global _function_call_counts
+    _function_call_counts["process_exceptions"] += 1
+    logger.debug(f"process_exceptions called (call #{_function_call_counts['process_exceptions']}) for component: {component.get('smiles', 'None')}")
+
     constituents = []
     s = handle_dup_smiles(component["smiles"])  # O.O and ClCCl.ClCCl.ClCCl
     s = canonicalize_smiles(s)
@@ -781,6 +808,10 @@ def process_simple(component):
     Case 2: both volume and molarity present -> calculate mole for solutes
     Case 3: only volume present -> calculate mole for the liquid or hydrate (special case NN.O)
     """
+    global _function_call_counts
+    _function_call_counts["process_simple"] += 1
+    logger.debug(f"process_simple called (call #{_function_call_counts['process_simple']}) for component: {component.get('smiles', 'None')}")
+
     constituents = []
     s = canonicalize_smiles(component.get("smiles"))
     if not s:
@@ -820,3 +851,25 @@ def process_simple(component):
         return [{"smiles": s, "mole": amount, "orig_smiles": s, "role": component.get("role")}]
 
     return constituents
+
+
+def log_function_call_summary():
+    global _function_call_counts
+    logger.info("=== Function Call Summary ===")
+    total_process_calls = sum(_function_call_counts[key] for key in ["process_simple", "process_exceptions", "process_mixuture", "process_acidbase"])
+
+    for func_name, count in _function_call_counts.items():
+        if func_name.startswith("process_"):
+            percentage = (count / total_process_calls * 100) if total_process_calls > 0 else 0
+            logger.info(f"{func_name}: {count} calls ({percentage:.1f}%)")
+        else:
+            logger.info(f"{func_name}: {count} calls")
+
+    logger.info(f"Total process function calls: {total_process_calls}")
+    logger.info("============================")
+
+
+def reset_function_call_counts():
+    global _function_call_counts
+    for key in _function_call_counts:
+        _function_call_counts[key] = 0

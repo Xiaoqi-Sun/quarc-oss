@@ -1,4 +1,4 @@
-""" Collect pistachio reaction record from JSON to ReactionDatum. This process involves reaction information
+"""Collect pistachio reaction record from JSON to ReactionDatum. This process involves reaction information
 extraction, reaction parsing, and reaction matching, and deduplication at reaction level.
 """
 
@@ -17,10 +17,12 @@ from quarc.data.datapoints import AgentRecord, ReactionDatum
 from quarc.preprocessing.exceptions import *
 from quarc.preprocessing.preprocess_quantities import (
     determine_category,
+    log_function_call_summary,
     process_acidbase,
     process_exceptions,
     process_mixuture,
     process_simple,
+    reset_function_call_counts,
 )
 from quarc.preprocessing.text_parser import parse_temperature
 from quarc.utils.smiles_utils import (
@@ -94,21 +96,15 @@ def merge_duplicate_smiles(components):
                                 if c_q["type"] == res[idx_res]["quantities"][i]["type"]:
                                     found_same_type = True
                                     if (
-                                        res[idx_res]["quantities"][i].get("value")
-                                        == "NaN"
-                                        or res[idx_res]["quantities"][i].get("value")
-                                        is None
+                                        res[idx_res]["quantities"][i].get("value") == "NaN"
+                                        or res[idx_res]["quantities"][i].get("value") is None
                                         or c_q.get("value") == "NaN"
                                         or c_q.get("value") is None
                                     ):
                                         res[idx_res]["quantities"][i]["value"] = None
                                     else:
-                                        res[idx_res]["quantities"][i]["value"] += c_q[
-                                            "value"
-                                        ]
-                                    res[idx_res]["quantities"][i][
-                                        "text"
-                                    ] = "should not read"
+                                        res[idx_res]["quantities"][i]["value"] += c_q["value"]
+                                    res[idx_res]["quantities"][i]["text"] = "should not read"
                             if not found_same_type:
                                 res[idx_res]["quantities"].append(c_q)
                     else:
@@ -252,15 +248,11 @@ def reverse_match(
     if any([unprocessed_reactants, unprocessed_agents, unprocessed_products]):
         data = []  # list of dict
         if unprocessed_reactants:
-            data.append(
-                {"role": "Reactant", "unprocessed_content": unprocessed_reactants}
-            )
+            data.append({"role": "Reactant", "unprocessed_content": unprocessed_reactants})
         if unprocessed_agents:
             data.append({"role": "Agent", "unprocessed_content": unprocessed_agents})
         if unprocessed_products:
-            data.append(
-                {"role": "Product", "unprocessed_content": unprocessed_products}
-            )
+            data.append({"role": "Product", "unprocessed_content": unprocessed_products})
         raise ReverseMismatchError("\tUnprocessed parts found in", data=data)
 
 
@@ -271,9 +263,7 @@ def collect_reaction(r: dict) -> ReactionDatum:
     try:
         rxn_smiles = r["data"]["smiles"]
     except:
-        raise BadRecord(
-            f"\tEntry missing reaction SMILES for document: {r.get('title')}"
-        )
+        raise BadRecord(f"\tEntry missing reaction SMILES for document: {r.get('title')}")
 
     try:
         if not is_atom_map_rxn_smiles(rxn_smiles):
@@ -395,6 +385,9 @@ def collect(raw_data: list[dict]) -> tuple[list[ReactionDatum], dict]:
     stats: dict, with counts, max num of reagents, reactants, num missing temperature
     """
 
+    # Reset function call counters at the start of each chunk
+    reset_function_call_counts()
+
     cnt = 0
     badrecord_cnt = 0
     reverse_mismatch_cnt = 0
@@ -453,6 +446,8 @@ def collect(raw_data: list[dict]) -> tuple[list[ReactionDatum], dict]:
     logger.info("---Collection Stats---")
     logger.info(json.dumps(stats, indent=2))
 
+    log_function_call_summary()
+
     return collected_data, stats
 
 
@@ -481,9 +476,7 @@ def deduplicate(
         # reactants with padding
         for i, reactant in enumerate(datum.reactants, start=1):
             row_dict[f"reactant_{i}_smi"] = reactant.smiles
-            row_dict[f"reactant_{i}_amt"] = (
-                round(reactant.amount, 4) if reactant.amount else None
-            )
+            row_dict[f"reactant_{i}_amt"] = round(reactant.amount, 4) if reactant.amount else None
         for i in range(len(datum.reactants) + 1, max_num_reactants + 1):
             row_dict[f"reactant_{i}_smi"] = None
             row_dict[f"reactant_{i}_amt"] = None
@@ -491,9 +484,7 @@ def deduplicate(
         # agents with padding
         for i, agent in enumerate(datum.agents, start=1):
             row_dict[f"agent_{i}_smi"] = agent.smiles
-            row_dict[f"agent_{i}_amt"] = (
-                round(agent.amount, 4) if agent.amount else None
-            )
+            row_dict[f"agent_{i}_amt"] = round(agent.amount, 4) if agent.amount else None
         for i in range(len(datum.agents) + 1, max_num_agents + 1):
             row_dict[f"agent_{i}_smi"] = None
             row_dict[f"agent_{i}_amt"] = None
@@ -525,9 +516,7 @@ def _process_chunk(input_path: str, temp_dedup_dir: str) -> None:
     )
 
     # Save to temporary deduped file
-    output_path = os.path.join(
-        temp_dedup_dir, f"temp_deduped_{os.path.basename(input_path)}"
-    )
+    output_path = os.path.join(temp_dedup_dir, f"temp_deduped_{os.path.basename(input_path)}")
     with open(output_path, "wb") as f:
         pickle.dump(deduped_records, f, pickle.HIGHEST_PROTOCOL)
 

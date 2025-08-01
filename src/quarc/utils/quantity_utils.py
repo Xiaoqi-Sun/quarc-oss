@@ -7,11 +7,9 @@ from rdkit.Chem import Descriptors
 
 from quarc.preprocessing.exceptions import *
 from quarc.utils.smiles_utils import get_common_solvents_canonical, canonicalize_smiles
-from quarc.settings import load as load_settings
 
 COMMON_SOLVENTS_CANONICAL = get_common_solvents_canonical()
 
-cfg = load_settings()
 
 RDLogger.logger().setLevel(RDLogger.ERROR)
 
@@ -23,7 +21,8 @@ def _get_reagent_conv_rules():
     global _reagent_conv_rules
     if _reagent_conv_rules is None:
         try:
-            with open(cfg.processed_data_dir / "agent_encoder/agent_rules_v1.json", "r") as f:
+            # Use docker path
+            with open("/app/quarc/data/processed/agent_encoder/agent_rules_v1.json", "r") as f:
                 _reagent_conv_rules = json.load(f)
         except (FileNotFoundError, json.JSONDecodeError):
             _reagent_conv_rules = {}

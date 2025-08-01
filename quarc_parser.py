@@ -2,7 +2,7 @@ def add_preprocess_opts(parser):
     """Data and path options"""
     group = parser.add_argument_group("quarc_preprocess")
 
-    group.add_argument("--config", type=str, default="", help="preprocess config path")
+    group.add_argument("--config", type=str, default="configs/preprocess_config.yaml", help="preprocess config path")
     group.add_argument("--chunk_json", action="store_true", help="run chunk data")
     group.add_argument(
         "--collect_dedup", action="store_true", help="run data collection and deduplication"
@@ -16,7 +16,7 @@ def add_preprocess_opts(parser):
         "--stage3_filter", action="store_true", help="run reactant amount filtering"
     )
     group.add_argument("--stage4_filter", action="store_true", help="run agent amount filtering")
-    group.add_argument("--all", action="store_true", help="run complete pipeline")
+    group.add_argument("--run_all", action="store_true", help="run complete pipeline")
 
 
 def add_model_opts(parser):
@@ -121,7 +121,7 @@ def add_data_opts(parser):
     group.add_argument(
         "--processed-data-dir",
         type=str,
-        default="data/processed",
+        default="./data/processed",
         help="processed data with encoder files",
     )
 
