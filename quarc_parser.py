@@ -112,6 +112,7 @@ def add_predict_opts(parser):
     group.add_argument(
         "--output", "-o", type=str, default="", help="Output JSON file for predictions"
     )
+    group.add_argument("--top-k", type=int, default=10, help="top k predictions")
 
 
 def add_data_opts(parser):

@@ -23,6 +23,7 @@ dirs:
   stage2_dir: &stage2_dir "/app/quarc/data/processed/stage2" # Temperature data
   stage3_dir: &stage3_dir "/app/quarc/data/processed/stage3" # Reactant amount data
   stage4_dir: &stage4_dir "/app/quarc/data/processed/stage4" # Agent amount data
+  overlap_dir: &overlap_dir "/app/quarc/data/processed/overlap" # Overlapping reactions
 
 chunking:
   raw_input_dir: *raw_dir
@@ -100,3 +101,8 @@ stage_4_filter:
   ratio_range:
     lower: 0.001
     upper: 1000.0
+
+# Run all filters to get overlapping reactions
+all_filters:
+  input_dir: *split_dir
+  output_dir: *overlap_dir

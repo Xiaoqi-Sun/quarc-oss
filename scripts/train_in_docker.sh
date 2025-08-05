@@ -4,6 +4,16 @@
 export BATCH_SIZE=512
 export NUM_GPUS=1
 
+# paths
+STAGE1_TRAIN_PATH="/app/quarc/data/processed/stage1/stage1_train.pickle"
+STAGE1_VAL_PATH="/app/quarc/data/processed/stage1/stage1_val.pickle"
+STAGE2_TRAIN_PATH="/app/quarc/data/processed/stage2/stage2_train.pickle"
+STAGE2_VAL_PATH="/app/quarc/data/processed/stage2/stage2_val.pickle"
+STAGE3_TRAIN_PATH="/app/quarc/data/processed/stage3/stage3_train.pickle"
+STAGE3_VAL_PATH="/app/quarc/data/processed/stage3/stage3_val.pickle"
+STAGE4_TRAIN_PATH="/app/quarc/data/processed/stage4/stage4_train.pickle"
+STAGE4_VAL_PATH="/app/quarc/data/processed/stage4/stage4_val.pickle"
+
 # stage 1 (GNN)
 docker run --rm --shm-size=5gb --gpus '"device=0"' \
     -v "$PWD/configs:/app/quarc/configs" \
@@ -21,13 +31,12 @@ docker run --rm --shm-size=5gb --gpus '"device=0"' \
     --depth 2 \
     --hidden-size 2048 \
     --n-blocks 3 \
-    --graph-input-dim 1024 \
     --output-size 1376 \
     --num-classes 1376 \
     --processed-data-dir /app/quarc/data/processed \
     --num-workers 8 \
-    --train-data-path /app/quarc/data/processed/stage1/stage1_train.pickle \
-    --val-data-path /app/quarc/data/processed/stage1/stage1_val.pickle \
+    --train-data-path $STAGE1_TRAIN_PATH \
+    --val-data-path $STAGE1_VAL_PATH \
 
 # stage 2 (FFN)
 docker run --rm --shm-size=5gb --gpus '"device=0"' \
@@ -48,8 +57,8 @@ docker run --rm --shm-size=5gb --gpus '"device=0"' \
     --num-classes 1376 \
     --processed-data-dir /app/quarc/data/processed \
     --num-workers 8 \
-    --train-data-path /app/quarc/data/processed/stage2/stage2_train.pickle \
-    --val-data-path /app/quarc/data/processed/stage2/stage2_val.pickle \
+    --train-data-path $STAGE2_TRAIN_PATH \
+    --val-data-path $STAGE2_VAL_PATH \
 
 # stage 3 (FFN)
 docker run --rm --shm-size=5gb --gpus '"device=0"' \
@@ -70,8 +79,8 @@ docker run --rm --shm-size=5gb --gpus '"device=0"' \
     --num-classes 1376 \
     --processed-data-dir /app/quarc/data/processed \
     --num-workers 8 \
-    --train-data-path /app/quarc/data/processed/stage3/stage3_train.pickle \
-    --val-data-path /app/quarc/data/processed/stage3/stage3_val.pickle \
+    --train-data-path $STAGE3_TRAIN_PATH \
+    --val-data-path $STAGE3_VAL_PATH \
 
 # stage 4 (FFN)
 docker run --rm --shm-size=5gb --gpus '"device=0"' \
@@ -92,6 +101,6 @@ docker run --rm --shm-size=5gb --gpus '"device=0"' \
     --num-classes 1376 \
     --processed-data-dir /app/quarc/data/processed \
     --num-workers 8 \
-    --train-data-path /app/quarc/data/processed/stage4/stage4_train.pickle \
-    --val-data-path /app/quarc/data/processed/stage4/stage4_val.pickle \
+    --train-data-path $STAGE4_TRAIN_PATH \
+    --val-data-path $STAGE4_VAL_PATH \
 

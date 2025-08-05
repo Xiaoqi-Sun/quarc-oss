@@ -110,101 +110,141 @@ With the service started, run
 pytest
 ```
 
-<!-- ## Retraining and benchmarking (GPU Required)
+## Retraining and benchmarking (GPU Required)
 
-The full version of quarc relies on density values from Pistachio's proprietary web app to convert volume into molar amounts. Since these values cannot be shared, this open-source version uses a manually curated density file built from publicly avaliable sources (e.g., PubChem, NIST). We provide this density file for users wishing to preprocess and retrain models.
+This section covers training the four-stage reaction condition recommendation pipeline:
+
+1. **Stage 1 Agent Prediction**: Predicts chemical agents for a given reaction SMILES
+2. **Stage 2 Temperature Prediction**: Predicts reaction temperature for a given reaction SMILES and agents
+3. **Stage 3 Reactant Amount Prediction**: Predicts reactant amounts for a given reaction SMILES and agents
+4. **Stage 4 Agent Amount Prediction**: Predicts agent amounts for a given reaction SMILES and agents
+
+The four stages are trained indepdently, but at inference time, the predicted agents will serve as input to stage 2-4. The final predictions are made by enumerating and ranking the predictions from all four stages.
 
 > [!Note]
-> While the pretrained open-source model was originally trained with Pistachio-provided densities, users retraining from scratch should expect slightly different behavior when using the open-source densities we supply.
+> The full version of quarc relies on density values from Pistachio's proprietary web app to convert volume into molar amounts. Because these values are not publicly sharable, this open-source version uses a manually curated density file built from publicly avaliable sources (e.g., PubChem, NIST). We provide this density file for users wishing to preprocess and retrain models.
+>
+> While the pretrained open-source model was trained with Pistachio densities, users retraining from scratch with the open-source density file should expect slightly different behavior.
 
-### Step 1/4: Environment Setup
+### Step 1/6: Environment Setup
 
-Follow the instructions in Step 1/4 in the Serving section to build the GPU docker image. It should have the name `${QUARC_REGISTRY}/quarc:1.0-gpu`
+Follow the instructions in Step 1/4 in the Serving section to build the GPU docker image. It should have the name `${ASKCOS_REGISTRY}/quarc:1.0-gpu`
 
 Note: the Docker needs to be rebuilt before running whenever there is any change in code.
 
-### Step 2/4: Data Preparation
+### Step 2/6: Data Preparation
 
-Note that the preprocessing stage requires open-source reaction classification (no proprietary NameRxn needed). Various reaction classification tools are available in the community including RDKit reaction fingerprints.
+Choose one of the following data preparation options:
 
-- Option 1: provide pre-split reaction data
+- **Option 1: Pistachio Data**
 
-Prepare the raw .csv files for train, validation and test. The required columns are "rxn_smiles" and "conditions" (containing agent SMILES, temperature, and amounts). This is the typical setting, where the pre-split files are supplied.
+If using Pistachio data (or data sharing Pistachio's format), the preprocessing pipeline can be applied directly by specifying the path to extracted Pistachio data.
 
-You can also include other columns in the .csv files, which will all be saved during preprocessing (in `reactions.processed.json.gz`).
+Configure preprocessing settings in `./configs/preprocess_config.yaml`.
 
-- Option 2: provide unsplit reaction data
+- **Option 2: Custom Data**
 
-It is also possible to supply a single .csv file containing all reactions and let the preprocessing engine handle the splitting. In this case, by default, reactions with failed condition extraction will be filtered out, after which the remaining reactions will be deduplicated, split into train/val/test splits.
+Skip the chunk_json and collect_dedup steps. Prepare your data in the `ReactionDatum` format:
 
-### Step 3/4: Path Configuration
+```python
+@dataclass
+class AgentRecord:
+    smiles: str
+    amount: float | None
 
-- Case 1: if pre-split reaction data is provided
+@dataclass
+class ReactionDatum:
+    document_id: str | None
+    rxn_class: str | None
+    date: str | None
+    rxn_smiles: str
 
-Configure the environment variables in `./scripts/benchmark_in_docker_presplit.sh`, especially the paths, to point to the _absolute_ paths of raw files and desired output paths.
+    reactants: list[AgentRecord]
+    products: list[AgentRecord]
+    agents: list[AgentRecord]
 
+    temperature: float | None
 ```
 
-# benchmark_in_docker_presplit.sh
+Note: Amounts should be in moles for each reactant and agent. Once data is prepared in this format (including deduplication), the remaining preprocessing pipeline (vocabulary generation, filtering, document-level splitting) can be applied.
 
-...
-export DATA_NAME="my_new_reactions"
-export TRAIN_FILE=$PWD/new_data/raw_train.csv
-export VAL_FILE=$PWD/new_data/raw_val.csv
-export TEST_FILE=$PWD/new_data/raw_test.csv
-...
+### Step 3/6: Preprocessing
 
+Configure the environment variables to point to _absolute_ paths of your data files:
+
+**For Pistachio Data:**
+
+```bash
+export RAW_DIR=/path/to/pistachio/extract
+
+# Then run preprocessing
+sh scripts/preprocess_in_docker_pistachio.sh
 ```
 
-- Case 2: if unsplit reaction data is provided
+**For Custom Data:**
 
-Configure the environment variables in `./scripts/benchmark_in_docker_unsplit.sh`, especially the paths, to point to the _absolute_ paths of the raw file and desired output paths.
+```bash
+export FINAL_DEDUP_PATH=/path/to/final_deduped.pickle
 
+# Then run preprocessing
+sh scripts/preprocess_in_docker_custom.sh
 ```
 
-# benchmark_in_docker_unsplit.sh
 
-...
-export DATA_NAME="my_new_reactions"
-export ALL_REACTION_FILE=$PWD/new_data/all_reactions.csv
-...
+### Step 4/6: Training
 
+```bash
+sh scripts/train_in_docker.sh
 ```
 
-the default train/val/test ratio is 98:1:1, which can be adjusted too. For example, if you want to use most of the data for training and very little for validation or testing,
+This trains all four stages independently. Progress and training logs are saved under `./logs`.
 
+### Step 5/6: Model Selection and Pipeline Configuration
+
+After training completes, you'll need to manually select the best models and configure the pipeline weights. This process involves two separate steps:
+
+#### 1. Stage 1 Model Selection
+
+Stage 1 (agent prediction) models are evaluated using greedy search on a subset of validation setduring training, but you may want to perform offline evaluation using beam search for final model selection.
+
+```bash
+sh scripts/stage1_offline_evaluation.sh
 ```
 
-# benchmark_in_docker_unsplit.sh
+Review the results and select the best-performing checkpoint based on your accuracy requirements.
 
-...
-bash scripts/preprocess_in_docker.sh --split_ratio 99:1:0
-bash scripts/train_in_docker.sh
-bash scripts/predict_in_docker.sh
+#### 2. Pipeline Weight Optimization
 
+After selecting the best models for all 4 stages, optimize the weights used to combine scores from each stage:
+
+```bash
+sh scripts/optimize_weights_in_docker.sh
 ```
 
-### Step 4/4: Training and Benchmarking
+This performs hyperparameter tuning on the overall validation set to find optimal weights for ranking predictions across all stages.
 
-Run benchmarking on a machine with GPU using
+#### 3. Configuration Update
 
+Manually create `retrained_model_config.yaml` with:
+
+- Selected model checkpoints for each stage
+- Optimized pipeline weights
+- Any stage-specific configuration parameters
+
+Use `hybrid_pipeline_oss.yaml` as a template for the configuration format.
+
+### Step 6/6: Prediction
+
+Configure your selected models in `predict_in_docker.sh`, then run:
+
+```bash
+export PIPELINE_CONFIG_PATH="configs/best_model_config.yaml"
+sh scripts/predict_in_docker.sh
 ```
 
-sh scripts/benchmark_in_docker_presplit.sh
+This generates predictions for the test set and saves results to `./data/processed/overlap/overlap_test_predictions.json`. Adjust `--top-k` to change the number of predictions generated.
 
-```
-
-for pre-split data, or
-
-```
-
-sh scripts/benchmark_in_docker_unsplit.sh
-
-```
-
-for unsplit data. This will run the preprocessing, training and predicting for the QUARC model with top-n accuracies up to n=10 as the final outputs. Progress and result logs will be saved under `./logs`.
-
-The estimated running times for benchmarking a typical dataset on a 32-core machine with 1 RTX3090 GPU are
+<!-- The estimated running times for benchmarking a typical dataset on a 32-core machine with 1 RTX3090 GPU are
 
 - Preprocessing: ~20 mins
 - Training: ~2 hours (4 stages)
