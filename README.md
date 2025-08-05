@@ -170,9 +170,11 @@ Note: Amounts should be in moles for each reactant and agent. Once data is prepa
 
 ### Step 3/6: Preprocessing
 
-Configure the environment variables to point to _absolute_ paths of your data files:
+Configure the environment variables to point to _absolute_ paths of your data files. Either way, the preprocessing pipeline will generate new vocabulary and save the processed data to `./data/processed`. Depending on the data size, you may want to tune the preprocessing parameters in `./configs/preprocess_config.yaml`. You can also skip the agent vocab generation and use the provided agent vocab.
 
-**For Pistachio Data:**
+- **For Pistachio Data:**
+
+Unzip the Pistachio data and set the path to the extracted data:
 
 ```bash
 export RAW_DIR=/path/to/pistachio/extract
@@ -181,7 +183,9 @@ export RAW_DIR=/path/to/pistachio/extract
 sh scripts/preprocess_in_docker_pistachio.sh
 ```
 
-**For Custom Data:**
+- **For Custom Data:**
+
+Prepare your data in the `ReactionDatum` format and set the path to the deduplicated data:
 
 ```bash
 export FINAL_DEDUP_PATH=/path/to/final_deduped.pickle
@@ -189,7 +193,6 @@ export FINAL_DEDUP_PATH=/path/to/final_deduped.pickle
 # Then run preprocessing
 sh scripts/preprocess_in_docker_custom.sh
 ```
-
 
 ### Step 4/6: Training
 
@@ -203,17 +206,17 @@ This trains all four stages independently. Progress and training logs are saved 
 
 After training completes, you'll need to manually select the best models and configure the pipeline weights. This process involves two separate steps:
 
-#### 1. Stage 1 Model Selection
+#### 1. Select Stage 1 Model
 
-Stage 1 (agent prediction) models are evaluated using greedy search on a subset of validation setduring training, but you may want to perform offline evaluation using beam search for final model selection.
+During training, Stage 1 (agent prediction) models are evaluated using greedy search on a subset of validation rections for efficiency. You may want to perform offline evaluation using beam search for final model selection.
 
 ```bash
 sh scripts/stage1_offline_evaluation.sh
 ```
 
-Review the results and select the best-performing checkpoint based on your accuracy requirements.
+Review the results and select the best-performing checkpoint based on the desired accuracy. Update `hybrid_pipeline_oss.yaml` accordingly with the selected model checkpoint.
 
-#### 2. Pipeline Weight Optimization
+#### 2. Optimize Pipeline Weights
 
 After selecting the best models for all 4 stages, optimize the weights used to combine scores from each stage:
 
@@ -221,17 +224,7 @@ After selecting the best models for all 4 stages, optimize the weights used to c
 sh scripts/optimize_weights_in_docker.sh
 ```
 
-This performs hyperparameter tuning on the overall validation set to find optimal weights for ranking predictions across all stages.
-
-#### 3. Configuration Update
-
-Manually create `retrained_model_config.yaml` with:
-
-- Selected model checkpoints for each stage
-- Optimized pipeline weights
-- Any stage-specific configuration parameters
-
-Use `hybrid_pipeline_oss.yaml` as a template for the configuration format.
+This performs hyperparameter tuning on the overall validation set to find optimal stage-specific weights for ranking the enumerated predictions. Review the results and select the best-performing weights to update `hybrid_pipeline_oss.yaml`.
 
 ### Step 6/6: Prediction
 
@@ -239,6 +232,7 @@ Configure your selected models in `predict_in_docker.sh`, then run:
 
 ```bash
 export PIPELINE_CONFIG_PATH="configs/best_model_config.yaml"
+
 sh scripts/predict_in_docker.sh
 ```
 
