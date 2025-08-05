@@ -126,7 +126,7 @@ def load_models_from_yaml(config_path, device="cuda"):
         else:
             raise ValueError(f"Invalid model type: {model_config['model_type']}")
 
-        checkpoint_path = base_dir / model_config["checkpoint_path"]
+        checkpoint_path = base_dir / Path(model_config["checkpoint_path"])
         state_dict = load_checkpoint_smart(checkpoint_path, device)
 
         try:

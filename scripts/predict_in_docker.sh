@@ -1,5 +1,7 @@
 #!/bin/bash
-export PIPELINE_CONFIG_PATH="configs/hybrid_pipeline_oss.yaml"
+
+# If haven't already, need to update the pipeline config to use the optimized weights
+export PIPELINE_CONFIG_PATH="configs/test_pipeline.yaml"
 
 docker run --rm --shm-size=5gb --gpus '"device=0"' \
     -v "$PWD/configs:/app/quarc/configs" \

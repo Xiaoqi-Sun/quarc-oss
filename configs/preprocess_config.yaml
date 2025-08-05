@@ -14,9 +14,9 @@ dirs:
   final_dedup_filtered_path: &final_dedup_filtered_path "/app/quarc/data/interim/final_deduped_filtered.pickle" # After initial filtering
 
   # Processed data directories and files
-  agent_encoder_list_path: &agent_encoder_list_path "/app/quarc/data/processed/agent_encoder/agent_encoder_list.json" # Agent vocabulary list
-  agent_other_dict_path: &agent_other_dict_path "/app/quarc/data/processed/agent_encoder/agent_other_dict.json" # Rare agent mappings
-  conv_rules_path: &conv_rules_path "/app/quarc/data/processed/agent_encoder/agent_rules_v1.json" # Agent standardization rules
+  agent_encoder_list_path: &agent_encoder_list_path "/app/quarc/data/processed/agent_encoder_new/agent_encoder_list.json" # Agent vocabulary list
+  agent_other_dict_path: &agent_other_dict_path "/app/quarc/data/processed/agent_encoder_new/agent_other_dict.json" # Rare agent mappings
+  conv_rules_path: &conv_rules_path "/app/quarc/data/processed/agent_encoder_new/agent_rules_v1.json" # Agent standardization rules
 
   # Stage-specific filtered data
   stage1_dir: &stage1_dir "/app/quarc/data/processed/stage1" # Agent data

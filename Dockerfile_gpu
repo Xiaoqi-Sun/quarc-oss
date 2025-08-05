@@ -26,7 +26,8 @@ tqdm==4.67.1 \
 numpy==1.26.4 \
 tensorboard==2.18.0 \
 torcheval==0.0.7 \
-chemprop==2.0.0
+chemprop==2.0.0 \
+optuna==4.4.0
 
 COPY . /app/quarc
 WORKDIR /app/quarc

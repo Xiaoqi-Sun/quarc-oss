@@ -152,6 +152,7 @@ class QuarcPredictor:
         # load test pickle
         with open(input_file, "rb") as f:
             test_data = pickle.load(f)
+
         dataset = EvaluationDatasetFactory.for_inference(
             data=test_data,
             agent_standardizer=self.agent_standardizer,

@@ -141,21 +141,14 @@ class ModelFactory:
         from torchmetrics.classification import Accuracy
         from rdkit import Chem
 
-        # Fingerprint generator
-        fp_gen = Chem.rdFingerprintGenerator.GetMorganGenerator(
-            radius=self.args.fp_radius, fpSize=self.args.fp_length
-        )
-
         # Datasets
         train_dataset = BinnedTemperatureDataset(
             data=train_data,
-            morgan_generator=fp_gen,
             agent_standardizer=self.agent_standardizer,
             agent_encoder=self.agent_encoder,
         )
         val_dataset = BinnedTemperatureDataset(
             data=val_data,
-            morgan_generator=fp_gen,
             agent_standardizer=self.agent_standardizer,
             agent_encoder=self.agent_encoder,
         )
@@ -275,23 +268,15 @@ class ModelFactory:
         from quarc.models.ffn_models import AgentAmountFFN
         from quarc.models.modules.ffn_heads import FFNAgentAmountHead
         from torchmetrics.classification import Accuracy
-        from rdkit import Chem
-
-        # Fingerprint generator
-        fp_gen = Chem.rdFingerprintGenerator.GetMorganGenerator(
-            radius=self.args.fp_radius, fpSize=self.args.fp_length
-        )
 
         # Datasets
         train_dataset = BinnedAgentAmoutOneshot(
             data=train_data,
-            morgan_generator=fp_gen,
             agent_standardizer=self.agent_standardizer,
             agent_encoder=self.agent_encoder,
         )
         val_dataset = BinnedAgentAmoutOneshot(
             data=val_data,
-            morgan_generator=fp_gen,
             agent_standardizer=self.agent_standardizer,
             agent_encoder=self.agent_encoder,
         )
@@ -388,7 +373,7 @@ class ModelFactory:
             batch_size=self.args.batch_size,
             num_workers=self.args.num_workers,
             shuffle=True,
-            distributed=True,  # FIXME:
+            distributed=False,  # FIXME:
             persistent_workers=False,
             pin_memory=True,
         )
@@ -397,7 +382,7 @@ class ModelFactory:
             batch_size=self.args.batch_size,
             num_workers=self.args.num_workers,
             shuffle=False,
-            distributed=True,  # FIXME:
+            distributed=False,  # FIXME:
             persistent_workers=False,
             pin_memory=True,
         )
@@ -537,13 +522,9 @@ class ModelFactory:
         from quarc.models.modules.gnn_heads import GNNReactantAmountHead
         from quarc.data.gnn_dataloader import build_dataloader_agent
         from torchmetrics.classification import Accuracy
-        from rdkit import Chem
 
         # Featurizer
         featurizer = featurizers.CondensedGraphOfReactionFeaturizer(mode_="REAC_DIFF")
-        fp_gen = Chem.rdFingerprintGenerator.GetMorganGenerator(
-            radius=self.args.fp_radius, fpSize=self.args.fp_length
-        )
 
         # Datasets
         train_dataset = GNNBinnedReactantAmountDataset(
@@ -551,14 +532,12 @@ class ModelFactory:
             agent_standardizer=self.agent_standardizer,
             agent_encoder=self.agent_encoder,
             featurizer=featurizer,
-            morgan_generator=fp_gen,
         )
         val_dataset = GNNBinnedReactantAmountDataset(
             data=val_data,
             agent_standardizer=self.agent_standardizer,
             agent_encoder=self.agent_encoder,
             featurizer=featurizer,
-            morgan_generator=fp_gen,
         )
 
         # Data loaders

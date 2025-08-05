@@ -48,6 +48,7 @@ from quarc.preprocessing.condition_filter import (
     run_stage2_filters,
     run_stage3_filters,
     run_stage4_filters,
+    run_all_filters,
 )
 import quarc_parser
 
@@ -102,6 +103,11 @@ class QuarcProcessor:
                 with logger.contextualize(stage=f"stage{stage}"):
                     stage_functions[stage](self.config)
 
+    def overlap_data(self):
+        """Step 6: Overlap data"""
+        with logger.contextualize(stage="overlap"):
+            run_all_filters(self.config)
+
     def process_complete_pipeline(self):
         self.chunk_data()
         self.collect_and_deduplicate()
@@ -109,6 +115,7 @@ class QuarcProcessor:
         self.initial_filter()
         self.split_data()
         self.stage_filters()
+        self.overlap_data()
 
     def process_partial_pipeline(self, steps: list):
         """Run selected steps of the preprocessing pipeline.
@@ -127,6 +134,7 @@ class QuarcProcessor:
             "stage2": lambda: self.stage_filters([2]),
             "stage3": lambda: self.stage_filters([3]),
             "stage4": lambda: self.stage_filters([4]),
+            "overlap": self.overlap_data,
         }
 
         for step in steps:
@@ -177,5 +185,7 @@ if __name__ == "__main__":
             steps.append("stage3")
         if args.stage4_filter:
             steps.append("stage4")
+        if args.overlap:
+            steps.append("overlap")
 
         processor.process_partial_pipeline(steps)
