@@ -1,6 +1,6 @@
 #!/bin/bash
 
-PIPELINE_PATH="configs/test_pipeline"
+export PIPELINE_CONFIG_PATH="configs/test_pipeline"
 
 # Optimize weights using top 5 accuracy
 docker run --rm --shm-size=5gb --gpus '"device=0"' \
@@ -10,7 +10,7 @@ docker run --rm --shm-size=5gb --gpus '"device=0"' \
     -v "$PWD/logs:/app/quarc/logs" \
     -t ${ASKCOS_REGISTRY}/quarc:1.0-gpu \
     python pipeline_weight_optimizer.py \
-    --pipeline $PIPELINE_PATH \
+    --pipeline $PIPELINE_CONFIG_PATH \
     --processed-data-dir /app/quarc/data/processed \
     --data-path /app/quarc/data/processed/overlap/overlap_val.pickle \
     --output-dir /app/quarc/data/precomputed/ \
@@ -27,7 +27,7 @@ docker run --rm --shm-size=5gb --gpus '"device=0"' \
     -v "$PWD/logs:/app/quarc/logs" \
     -t ${ASKCOS_REGISTRY}/quarc:1.0-gpu \
     python pipeline_weight_optimizer.py \
-    --pipeline $PIPELINE_PATH \
+    --pipeline $PIPELINE_CONFIG_PATH \
     --processed-data-dir /app/quarc/data/processed \
     --data-path /app/quarc/data/processed/overlap/overlap_val.pickle \
     --output-dir /app/quarc/data/precomputed/ \

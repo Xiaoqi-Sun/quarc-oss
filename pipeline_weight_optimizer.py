@@ -346,7 +346,6 @@ def main():
 
     pipeline_name = args.pipeline
 
-    # Setup logging
     logger.remove()
     logger.add(sys.stderr, level="INFO", colorize=True)
     logger.add(f"logs/choose_weights_{pipeline_name}.log", level="INFO")
