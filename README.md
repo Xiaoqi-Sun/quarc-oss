@@ -214,25 +214,25 @@ During training, Stage 1 (agent prediction) models are evaluated using greedy se
 sh scripts/stage1_offline_evaluation.sh
 ```
 
-Review the results and select the best-performing checkpoint based on the desired accuracy. Update `hybrid_pipeline_oss.yaml` accordingly with the selected model checkpoint.
+Review the results and select the best-performing checkpoint based on the desired accuracy. Create a new pipeline file or update `hybrid_pipeline_oss.yaml` accordingly with the selected model checkpoint.
 
 #### 2. Optimize Pipeline Weights
 
 After selecting the best models for all 4 stages, optimize the weights used to combine scores from each stage:
 
 ```bash
+export PIPELINE_CONFIG_PATH="configs/best_model_config"
+
 sh scripts/optimize_weights_in_docker.sh
 ```
 
-This performs hyperparameter tuning on the overall validation set to find optimal stage-specific weights for ranking the enumerated predictions. Review the results and select the best-performing weights to update `hybrid_pipeline_oss.yaml`.
+This performs hyperparameter tuning on the overall validation set to find optimal stage-specific weights required for ranking the enumerated predictions. Review the results and select the best-performing weights to update the pipeline file.
 
 ### Step 6/6: Prediction
 
-Configure your selected models in `predict_in_docker.sh`, then run:
+Then run the prediction script to generate predictions. The default test file is `./data/processed/overlap/overlap_test.pickle`, which is the overlap of all four stages to ensure targets for each stage are available. Users can also use their own test file by modifying the `--input` argument.
 
 ```bash
-export PIPELINE_CONFIG_PATH="configs/best_model_config.yaml"
-
 sh scripts/predict_in_docker.sh
 ```
 
